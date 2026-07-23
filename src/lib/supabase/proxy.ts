@@ -26,7 +26,18 @@ export async function updateSession(request: NextRequest) {
   );
 
   // importante: manter essa chamada — ela renova o token de sessão antes de expirar
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const path = request.nextUrl.pathname;
+  const rotaProtegida = path.startsWith("/onboarding") || path.startsWith("/painel");
+
+  if (!user && rotaProtegida) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
 
   return supabaseResponse;
 }
