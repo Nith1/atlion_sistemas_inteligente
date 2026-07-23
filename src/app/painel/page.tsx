@@ -55,6 +55,13 @@ export default async function PainelPage() {
         Estatísticas
       </Link>
 
+      <Link
+        href="/configuracoes"
+        className="mt-3 text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
+      >
+        Configurações
+      </Link>
+
       <form action={sair} className="mt-16">
         <button type="submit" className="text-sm text-foreground/50 hover:text-foreground">
           Sair
