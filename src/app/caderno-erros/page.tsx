@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { alternarRevisado } from "./actions";
+import { resolverPeriodo, dentroDoPeriodo } from "@/lib/periodo";
+import { FiltroPeriodoDisciplina } from "@/components/filtro-periodo-disciplina";
 
 type Registro = {
   id: string;
@@ -60,15 +62,29 @@ function agruparPorSessaoEAssunto(
 export default async function CadernoErrosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ mostrarRevisados?: string }>;
+  searchParams: Promise<{
+    mostrarRevisados?: string;
+    periodo?: string;
+    de?: string;
+    ate?: string;
+    disciplina?: string;
+  }>;
 }) {
-  const { mostrarRevisados } = await searchParams;
+  const { mostrarRevisados, periodo, de, ate, disciplina: disciplinaParam } = await searchParams;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
+
+  const { data: disciplinasAtivasData } = await supabase
+    .from("disciplinas")
+    .select("id, nome")
+    .eq("user_id", user.id)
+    .eq("ativa", true)
+    .order("ordem", { ascending: true });
+  const disciplinasAtivas = disciplinasAtivasData ?? [];
 
   const { data: registrosData } = await supabase
     .from("questoes_registro")
@@ -77,7 +93,18 @@ export default async function CadernoErrosPage({
     .eq("acertou", false)
     .order("created_at", { ascending: false });
 
-  const registros = (registrosData ?? []) as Registro[];
+  const registrosTodos = (registrosData ?? []) as Registro[];
+
+  const { inicio, fim, label: labelPeriodo } = resolverPeriodo(periodo, de, ate);
+  const disciplinaAtiva = disciplinaParam && disciplinaParam !== "todas" ? disciplinaParam : null;
+  const nomeDisciplinaAtiva = disciplinaAtiva
+    ? disciplinasAtivas.find((d) => d.id === disciplinaAtiva)?.nome
+    : null;
+
+  const registros = registrosTodos.filter((r) => {
+    if (disciplinaAtiva && r.disciplina_id !== disciplinaAtiva) return false;
+    return dentroDoPeriodo(r.created_at, inicio, fim);
+  });
 
   const disciplinaIds = [...new Set(registros.map((r) => r.disciplina_id))];
   const assuntoIds = [...new Set(registros.map((r) => r.assunto_id).filter((id): id is string => !!id))];
@@ -99,6 +126,17 @@ export default async function CadernoErrosPage({
   const blocos = mostrarTodos ? blocosTodos : blocosTodos.filter((b) => !b.revisado);
   const totalRevisados = blocosTodos.filter((b) => b.revisado).length;
 
+  function hrefMostrarRevisados(mostrar: boolean) {
+    const params = new URLSearchParams();
+    if (periodo) params.set("periodo", periodo);
+    if (de) params.set("de", de);
+    if (ate) params.set("ate", ate);
+    if (disciplinaParam) params.set("disciplina", disciplinaParam);
+    if (mostrar) params.set("mostrarRevisados", "1");
+    const qs = params.toString();
+    return `/caderno-erros${qs ? `?${qs}` : ""}`;
+  }
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">
       <Link href="/painel" className="text-sm text-foreground/50 hover:text-foreground">
@@ -107,13 +145,24 @@ export default async function CadernoErrosPage({
 
       <h1 className="mt-4 text-2xl font-semibold text-foreground">Caderno de Erros</h1>
       <p className="mt-1 text-sm text-foreground/60">
-        Toda questão que você errou numa sessão cai aqui, agrupada por assunto.
+        Toda questão que você errou numa sessão cai aqui, agrupada por assunto. Mostrando: {labelPeriodo} ·{" "}
+        {nomeDisciplinaAtiva ?? "todas as disciplinas"}
       </p>
+
+      <FiltroPeriodoDisciplina
+        basePath="/caderno-erros"
+        periodo={periodo}
+        de={de}
+        ate={ate}
+        disciplinaParam={disciplinaParam}
+        disciplinas={disciplinasAtivas}
+        paramsExtras={mostrarTodos ? { mostrarRevisados: "1" } : undefined}
+      />
 
       {totalRevisados > 0 && (
         <Link
-          href={mostrarTodos ? "/caderno-erros" : "/caderno-erros?mostrarRevisados=1"}
-          className="mt-4 text-xs text-foreground/50 underline underline-offset-4 hover:text-foreground"
+          href={hrefMostrarRevisados(!mostrarTodos)}
+          className="mt-4 inline-block text-xs text-foreground/50 underline underline-offset-4 hover:text-foreground"
         >
           {mostrarTodos ? "Ocultar revisados" : `Ver também os ${totalRevisados} já revisados`}
         </Link>
