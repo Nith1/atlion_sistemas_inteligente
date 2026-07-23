@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sair } from "./actions";
@@ -34,6 +35,13 @@ export default async function PainelPage() {
       <p className="mt-3 text-xs text-foreground/50">
         (próxima etapa do produto — ainda não implementada)
       </p>
+
+      <Link
+        href="/planejamento"
+        className="mt-6 text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
+      >
+        Gerenciar disciplinas e assuntos
+      </Link>
 
       <form action={sair} className="mt-16">
         <button type="submit" className="text-sm text-foreground/50 hover:text-foreground">
