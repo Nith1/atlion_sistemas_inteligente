@@ -63,6 +63,27 @@ async function escolherDisciplina(supabase: SupabaseClient, userId: string) {
   })[0];
 }
 
+// Marca o início (cronômetro) da próxima etapa não concluída da sessão, se
+// ainda não tiver começado — é o que faz o relógio da tela seguinte já valer
+// a partir do momento em que ela vira "a etapa atual".
+async function iniciarProximaEtapa(supabase: SupabaseClient, sessaoId: string) {
+  const { data: proxima } = await supabase
+    .from("sessao_etapas")
+    .select("id, iniciada_em")
+    .eq("sessao_id", sessaoId)
+    .eq("concluida", false)
+    .order("ordem", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (proxima && !proxima.iniciada_em) {
+    await supabase
+      .from("sessao_etapas")
+      .update({ iniciada_em: new Date().toISOString() })
+      .eq("id", proxima.id);
+  }
+}
+
 export async function iniciarSessao() {
   const { supabase, user } = await requireUser();
 
@@ -88,30 +109,50 @@ export async function iniciarSessao() {
       await supabase.from("sessao_etapas").insert(
         tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
       );
+      await iniciarProximaEtapa(supabase, sessao.id);
     }
   }
 
   redirect("/sessao");
 }
 
+// Fecha a etapa atual (marca concluída, grava quanto tempo levou de verdade)
+// e liga o cronômetro da próxima.
 async function avancarEtapa(
   supabase: SupabaseClient,
   etapaId: string,
-  assuntoId?: string | null
+  sessaoId: string,
+  extras?: Record<string, unknown>
 ) {
+  const { data: etapa } = await supabase
+    .from("sessao_etapas")
+    .select("iniciada_em")
+    .eq("id", etapaId)
+    .single();
+
+  const tempoGastoSegundos = etapa?.iniciada_em
+    ? Math.max(0, Math.round((Date.now() - new Date(etapa.iniciada_em).getTime()) / 1000))
+    : null;
+
   await supabase
     .from("sessao_etapas")
     .update({
       concluida: true,
       concluida_em: new Date().toISOString(),
-      ...(assuntoId !== undefined ? { assunto_id: assuntoId } : {}),
+      tempo_gasto_segundos: tempoGastoSegundos,
+      ...extras,
     })
     .eq("id", etapaId);
 
+  await iniciarProximaEtapa(supabase, sessaoId);
   revalidatePath("/sessao");
 }
 
-export async function concluirAtivacaoCognitiva(etapaId: string, formData: FormData) {
+export async function concluirAtivacaoCognitiva(
+  etapaId: string,
+  sessaoId: string,
+  formData: FormData
+) {
   const { supabase } = await requireUser();
   const assuntoIds = formData.getAll("assuntoId") as string[];
 
@@ -122,7 +163,7 @@ export async function concluirAtivacaoCognitiva(etapaId: string, formData: FormD
       .in("id", assuntoIds);
   }
 
-  await avancarEtapa(supabase, etapaId);
+  await avancarEtapa(supabase, etapaId, sessaoId);
 }
 
 export async function concluirEstudo(
@@ -148,12 +189,60 @@ export async function concluirEstudo(
       .eq("concluida", false);
   }
 
-  await avancarEtapa(supabase, etapaId, assuntoId);
+  await avancarEtapa(supabase, etapaId, sessaoId, { assunto_id: assuntoId });
 }
 
-export async function concluirConsolidacao(etapaId: string) {
+export async function concluirLeiSeca(
+  etapaId: string,
+  sessaoId: string,
+  assuntoId: string | null,
+  formData: FormData
+) {
   const { supabase } = await requireUser();
-  await avancarEtapa(supabase, etapaId);
+
+  if (assuntoId) {
+    const leiReferencia = (formData.get("leiReferencia") as string)?.trim();
+    const progresso = (formData.get("progresso") as string)?.trim();
+
+    await supabase
+      .from("assuntos")
+      .update({
+        ...(leiReferencia ? { lei_referencia: leiReferencia } : {}),
+        ...(progresso ? { progresso_lei_seca: progresso } : {}),
+      })
+      .eq("id", assuntoId);
+  }
+
+  await avancarEtapa(supabase, etapaId, sessaoId);
+}
+
+export async function concluirJurisprudencia(
+  etapaId: string,
+  sessaoId: string,
+  assuntoId: string | null,
+  formData: FormData
+) {
+  const { supabase } = await requireUser();
+
+  if (assuntoId) {
+    const referencia = (formData.get("referencia") as string)?.trim();
+    const progresso = (formData.get("progresso") as string)?.trim();
+
+    await supabase
+      .from("assuntos")
+      .update({
+        ...(referencia ? { jurisprudencia_referencia: referencia } : {}),
+        ...(progresso ? { progresso_jurisprudencia: progresso } : {}),
+      })
+      .eq("id", assuntoId);
+  }
+
+  await avancarEtapa(supabase, etapaId, sessaoId);
+}
+
+export async function concluirConsolidacao(etapaId: string, sessaoId: string) {
+  const { supabase } = await requireUser();
+  await avancarEtapa(supabase, etapaId, sessaoId);
 }
 
 export async function concluirQuestoes(
@@ -183,7 +272,7 @@ export async function concluirQuestoes(
     await supabase.from("questoes_registro").insert(registros);
   }
 
-  await avancarEtapa(supabase, etapaId, assuntoId);
+  await avancarEtapa(supabase, etapaId, sessaoId, { assunto_id: assuntoId });
 
   await supabase
     .from("sessoes")

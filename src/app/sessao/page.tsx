@@ -3,9 +3,12 @@ import { createClient } from "@/lib/supabase/server";
 import {
   concluirAtivacaoCognitiva,
   concluirEstudo,
+  concluirLeiSeca,
+  concluirJurisprudencia,
   concluirConsolidacao,
   concluirQuestoes,
 } from "./actions";
+import { Cronometro, TempoTotalHoje } from "./cronometro";
 
 const ETAPA_LABELS: Record<string, string> = {
   ativacao_cognitiva: "Ativação Cognitiva",
@@ -17,9 +20,17 @@ const ETAPA_LABELS: Record<string, string> = {
   questoes: "Questões",
 };
 
+const TEMPO_SUGERIDO_MINUTOS: Record<string, number> = {
+  ativacao_cognitiva: 10,
+  estudo: 25,
+  lei_seca: 15,
+  jurisprudencia: 15,
+  exercicios: 20,
+  laboratorio: 20,
+  questoes: 20,
+};
+
 const CONSOLIDACAO_INSTRUCAO: Record<string, string> = {
-  lei_seca: "Leia a lei seca relacionada a esse assunto no seu material.",
-  jurisprudencia: "Busque e leia jurisprudência recente sobre esse assunto.",
   exercicios: "Resolva exercícios sobre esse assunto no seu material.",
   laboratorio: "Pratique em laboratório/simulador esse assunto.",
 };
@@ -36,6 +47,8 @@ type Etapa = {
   ordem: number;
   concluida: boolean;
   assunto_id: string | null;
+  iniciada_em: string | null;
+  tempo_gasto_segundos: number | null;
 };
 
 export default async function SessaoPage() {
@@ -63,7 +76,7 @@ export default async function SessaoPage() {
 
   const { data: etapasData } = await supabase
     .from("sessao_etapas")
-    .select("id, tipo, ordem, concluida, assunto_id")
+    .select("id, tipo, ordem, concluida, assunto_id, iniciada_em, tempo_gasto_segundos")
     .eq("sessao_id", sessao.id)
     .order("ordem", { ascending: true });
 
@@ -73,6 +86,22 @@ export default async function SessaoPage() {
   if (!disciplina || !etapaAtual) redirect("/painel");
 
   const etapaIndex = etapas.findIndex((e) => e.id === etapaAtual.id);
+
+  // tempo total estudado hoje: soma o que já foi concluído hoje + o que a
+  // etapa atual (em andamento) já rendeu até agora
+  const inicioHoje = new Date();
+  inicioHoje.setHours(0, 0, 0, 0);
+
+  const { data: etapasHoje } = await supabase
+    .from("sessao_etapas")
+    .select("tempo_gasto_segundos, concluida_em, sessoes!inner(user_id)")
+    .eq("sessoes.user_id", user.id)
+    .gte("concluida_em", inicioHoje.toISOString());
+
+  const tempoBaseHojeSegundos = (etapasHoje ?? []).reduce(
+    (soma, e) => soma + (e.tempo_gasto_segundos ?? 0),
+    0
+  );
 
   let conteudo: React.ReactNode = null;
 
@@ -95,7 +124,7 @@ export default async function SessaoPage() {
 
     conteudo =
       candidatos && candidatos.length > 0 ? (
-        <form action={concluirAtivacaoCognitiva.bind(null, etapaAtual.id)}>
+        <form action={concluirAtivacaoCognitiva.bind(null, etapaAtual.id, sessao.id)}>
           <p className="text-sm text-foreground/70">{ATIVACAO_MODO_LABEL[modo]}</p>
           <ul className="mt-4 space-y-2">
             {candidatos.map((assunto) => (
@@ -116,7 +145,7 @@ export default async function SessaoPage() {
           </button>
         </form>
       ) : (
-        <form action={concluirAtivacaoCognitiva.bind(null, etapaAtual.id)}>
+        <form action={concluirAtivacaoCognitiva.bind(null, etapaAtual.id, sessao.id)}>
           <p className="text-sm text-foreground/60">
             Ainda não há assuntos estudados nessa disciplina pra reforçar. Sem problema —
             vamos direto pro estudo de hoje.
@@ -164,23 +193,122 @@ export default async function SessaoPage() {
     );
   }
 
-  if (["lei_seca", "jurisprudencia", "exercicios", "laboratorio"].includes(etapaAtual.tipo)) {
-    let nomeAssunto: string | null = null;
-    if (etapaAtual.assunto_id) {
-      const { data } = await supabase
-        .from("assuntos")
-        .select("nome")
-        .eq("id", etapaAtual.assunto_id)
-        .single();
-      nomeAssunto = data?.nome ?? null;
-    }
+  if (etapaAtual.tipo === "lei_seca") {
+    const assunto = etapaAtual.assunto_id
+      ? (
+          await supabase
+            .from("assuntos")
+            .select("nome, lei_referencia, progresso_lei_seca")
+            .eq("id", etapaAtual.assunto_id)
+            .single()
+        ).data
+      : null;
 
     conteudo = (
-      <form action={concluirConsolidacao.bind(null, etapaAtual.id)}>
-        <p className="text-sm text-foreground/60">{CONSOLIDACAO_INSTRUCAO[etapaAtual.tipo]}</p>
-        {nomeAssunto && (
-          <p className="mt-2 text-xl font-semibold text-foreground">{nomeAssunto}</p>
+      <form action={concluirLeiSeca.bind(null, etapaAtual.id, sessao.id, etapaAtual.assunto_id)}>
+        {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
+
+        <div className="mt-4">
+          <label className="block text-xs text-foreground/50">Qual lei</label>
+          <input
+            name="leiReferencia"
+            type="text"
+            defaultValue={assunto?.lei_referencia ?? ""}
+            placeholder="Ex: Lei nº 8.112/1990"
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+        </div>
+
+        {assunto?.progresso_lei_seca && (
+          <p className="mt-3 text-sm text-foreground/60">
+            Você parou em: <span className="font-medium text-foreground">{assunto.progresso_lei_seca}</span>. Leia a
+            partir daí.
+          </p>
         )}
+
+        <div className="mt-4">
+          <label className="block text-xs text-foreground/50">Até onde você leu agora</label>
+          <input
+            name="progresso"
+            type="text"
+            placeholder="Ex: Art. 42"
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
+          Concluir
+        </button>
+      </form>
+    );
+  }
+
+  if (etapaAtual.tipo === "jurisprudencia") {
+    const assunto = etapaAtual.assunto_id
+      ? (
+          await supabase
+            .from("assuntos")
+            .select("nome, jurisprudencia_referencia, progresso_jurisprudencia")
+            .eq("id", etapaAtual.assunto_id)
+            .single()
+        ).data
+      : null;
+
+    conteudo = (
+      <form action={concluirJurisprudencia.bind(null, etapaAtual.id, sessao.id, etapaAtual.assunto_id)}>
+        {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
+
+        <div className="mt-4">
+          <label className="block text-xs text-foreground/50">Qual jurisprudência/tema</label>
+          <input
+            name="referencia"
+            type="text"
+            defaultValue={assunto?.jurisprudencia_referencia ?? ""}
+            placeholder="Ex: STF, controle de constitucionalidade"
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+        </div>
+
+        {assunto?.progresso_jurisprudencia && (
+          <p className="mt-3 text-sm text-foreground/60">
+            Você parou em:{" "}
+            <span className="font-medium text-foreground">{assunto.progresso_jurisprudencia}</span>. Continue a
+            partir daí.
+          </p>
+        )}
+
+        <div className="mt-4">
+          <label className="block text-xs text-foreground/50">Até onde você revisou agora</label>
+          <input
+            name="progresso"
+            type="text"
+            placeholder="Ex: Súmulas do STJ até 2023"
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
+          Concluir
+        </button>
+      </form>
+    );
+  }
+
+  if (etapaAtual.tipo === "exercicios" || etapaAtual.tipo === "laboratorio") {
+    const assunto = etapaAtual.assunto_id
+      ? (await supabase.from("assuntos").select("nome").eq("id", etapaAtual.assunto_id).single()).data
+      : null;
+
+    conteudo = (
+      <form action={concluirConsolidacao.bind(null, etapaAtual.id, sessao.id)}>
+        <p className="text-sm text-foreground/60">{CONSOLIDACAO_INSTRUCAO[etapaAtual.tipo]}</p>
+        {assunto && <p className="mt-2 text-xl font-semibold text-foreground">{assunto.nome}</p>}
         <button
           type="submit"
           className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
@@ -192,15 +320,9 @@ export default async function SessaoPage() {
   }
 
   if (etapaAtual.tipo === "questoes") {
-    let nomeAssunto: string | null = null;
-    if (etapaAtual.assunto_id) {
-      const { data } = await supabase
-        .from("assuntos")
-        .select("nome")
-        .eq("id", etapaAtual.assunto_id)
-        .single();
-      nomeAssunto = data?.nome ?? null;
-    }
+    const assunto = etapaAtual.assunto_id
+      ? (await supabase.from("assuntos").select("nome").eq("id", etapaAtual.assunto_id).single()).data
+      : null;
 
     conteudo = (
       <form
@@ -213,10 +335,9 @@ export default async function SessaoPage() {
         )}
       >
         <p className="text-sm text-foreground/60">
-          Resolva questões {nomeAssunto ? `sobre` : "dessa disciplina"} {nomeAssunto && (
-            <span className="font-medium text-foreground">{nomeAssunto}</span>
-          )}{" "}
-          no seu material e registre o resultado:
+          Resolva questões {assunto ? "sobre" : "dessa disciplina"}{" "}
+          {assunto && <span className="font-medium text-foreground">{assunto.nome}</span>} no seu material e
+          registre o resultado:
         </p>
         <div className="mt-4 flex gap-3">
           <div className="flex-1">
@@ -255,19 +376,30 @@ export default async function SessaoPage() {
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-md">
-        <div className="mb-10 h-1 w-full rounded-full bg-foreground/10">
+        <div className="mb-3 h-1 w-full rounded-full bg-foreground/10">
           <div
             className="h-1 rounded-full bg-gold transition-all"
             style={{ width: `${((etapaIndex + 1) / etapas.length) * 100}%` }}
           />
         </div>
+        <TempoTotalHoje baseSegundos={tempoBaseHojeSegundos} iniciadaEmAtual={etapaAtual.iniciada_em} />
 
-        <p className="text-sm text-foreground/50">
-          {disciplina.nome} · etapa {etapaIndex + 1} de {etapas.length}
-        </p>
-        <h1 className="mt-1 text-xl font-semibold text-foreground">
-          {ETAPA_LABELS[etapaAtual.tipo] ?? etapaAtual.tipo}
-        </h1>
+        <div className="mt-7 flex items-center justify-between">
+          <div>
+            <p className="text-sm text-foreground/50">
+              {disciplina.nome} · etapa {etapaIndex + 1} de {etapas.length}
+            </p>
+            <h1 className="mt-1 text-xl font-semibold text-foreground">
+              {ETAPA_LABELS[etapaAtual.tipo] ?? etapaAtual.tipo}
+            </h1>
+          </div>
+          {etapaAtual.iniciada_em && (
+            <Cronometro
+              iniciadaEm={etapaAtual.iniciada_em}
+              sugeridoMinutos={TEMPO_SUGERIDO_MINUTOS[etapaAtual.tipo]}
+            />
+          )}
+        </div>
 
         <div className="mt-6">{conteudo}</div>
       </div>
