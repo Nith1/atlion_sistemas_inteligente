@@ -19,10 +19,12 @@ export function Cronometro({
   tempoAcumuladoSegundos,
   iniciadaEm,
   sugeridoMinutos,
+  sugeridoLabel,
 }: {
   tempoAcumuladoSegundos: number;
   iniciadaEm: string | null;
   sugeridoMinutos?: number;
+  sugeridoLabel?: string;
 }) {
   const [segundos, setSegundos] = useState(
     () => tempoAcumuladoSegundos + (iniciadaEm ? segundosDesde(iniciadaEm) : 0)
@@ -49,7 +51,7 @@ export function Cronometro({
       </span>
       {!iniciadaEm && <span className="text-xs text-foreground/40">pausado</span>}
       {sugeridoMinutos !== undefined && (
-        <span className="text-xs text-foreground/40">sugestão: {sugeridoMinutos} min</span>
+        <span className="text-xs text-foreground/40">sugestão: {sugeridoLabel ?? `${sugeridoMinutos} min`}</span>
       )}
     </div>
   );

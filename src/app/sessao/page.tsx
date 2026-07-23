@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   concluirAtivacaoCognitiva,
   concluirEstudo,
+  concluirDescanso,
   concluirLeiSeca,
   concluirJurisprudencia,
   concluirConsolidacao,
@@ -15,6 +16,7 @@ import { Cronometro, TempoTotalHoje } from "./cronometro";
 const ETAPA_LABELS: Record<string, string> = {
   ativacao_cognitiva: "Ativação Cognitiva",
   estudo: "Estudo",
+  descanso: "Descanso",
   lei_seca: "Lei Seca",
   jurisprudencia: "Jurisprudência",
   exercicios: "Exercícios",
@@ -22,16 +24,20 @@ const ETAPA_LABELS: Record<string, string> = {
   questoes: "Questões",
 };
 
-// Peso relativo de cada etapa dentro de uma sessão — usado só pra dividir o
-// tempo disponível do dia entre as etapas (não é tempo fixo em minutos).
-const PESO_ETAPA: Record<string, number> = {
-  ativacao_cognitiva: 10,
-  estudo: 25,
-  lei_seca: 15,
-  jurisprudencia: 15,
+// Duração sugerida por etapa — método validado do Atlion, não é estimativa.
+const MINUTOS_SUGERIDOS: Record<string, number> = {
+  ativacao_cognitiva: 15, // método: 10 a 15 min
+  estudo: 50,
+  descanso: 10,
+  lei_seca: 20,
+  jurisprudencia: 20,
   exercicios: 20,
   laboratorio: 20,
   questoes: 20,
+};
+
+const SUGERIDO_LABEL: Partial<Record<string, string>> = {
+  ativacao_cognitiva: "10–15 min",
 };
 
 const CONSOLIDACAO_INSTRUCAO: Record<string, string> = {
@@ -94,31 +100,9 @@ export default async function SessaoPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("ativacao_modo, horas_liquidas_dia")
+    .select("ativacao_modo")
     .eq("id", user.id)
     .single();
-
-  const { count: disciplinasAtivas } = await supabase
-    .from("disciplinas")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("ativa", true);
-
-  // Divide as horas líquidas do dia entre as disciplinas ativas (uma sessão
-  // por disciplina) e, dentro dessa sessão, entre as etapas — proporcional
-  // ao peso de cada uma. É só uma sugestão: o estudante pode ficar mais ou
-  // menos tempo em cada etapa.
-  const minutosPorSessao = profile?.horas_liquidas_dia
-    ? (profile.horas_liquidas_dia * 60) / Math.max(1, disciplinasAtivas ?? 1)
-    : null;
-  const pesoTotalSessao = etapas.reduce((soma, e) => soma + (PESO_ETAPA[e.tipo] ?? 0), 0);
-
-  function sugeridoMinutos(tipo: string): number | undefined {
-    const peso = PESO_ETAPA[tipo];
-    if (peso === undefined) return undefined;
-    if (!minutosPorSessao || !pesoTotalSessao) return peso;
-    return Math.max(2, Math.round((peso / pesoTotalSessao) * minutosPorSessao));
-  }
 
   // tempo total estudado hoje: soma o que já foi concluído hoje + o que a
   // etapa atual (em andamento) já rendeu até agora
@@ -148,6 +132,43 @@ export default async function SessaoPage() {
       .limit(5);
 
     const modo = profile?.ativacao_modo ?? "questoes";
+    const mostrarQuestoes = modo === "questoes" || modo === "questoes_anki";
+    const mostrarAnki = modo === "anki" || modo === "questoes_anki";
+
+    const camposDesempenho = (
+      <div className="mt-4 space-y-3">
+        {mostrarQuestoes && (
+          <div className="flex gap-3">
+            <div className="flex-1">
+              <label className="block text-xs text-foreground/50">Acertos</label>
+              <input
+                name="certas"
+                type="number"
+                min={0}
+                defaultValue={0}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs text-foreground/50">Erros</label>
+              <input
+                name="erradas"
+                type="number"
+                min={0}
+                defaultValue={0}
+                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+              />
+            </div>
+          </div>
+        )}
+        {mostrarAnki && (
+          <label className="flex items-center gap-2 text-sm text-foreground/70">
+            <input name="anki" type="checkbox" className="h-4 w-4 rounded border-foreground/30" />
+            Revisei no Anki hoje
+          </label>
+        )}
+      </div>
+    );
 
     conteudo =
       candidatos && candidatos.length > 0 ? (
@@ -164,6 +185,7 @@ export default async function SessaoPage() {
               </li>
             ))}
           </ul>
+          {camposDesempenho}
           <button
             type="submit"
             className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
@@ -177,6 +199,7 @@ export default async function SessaoPage() {
             Ainda não há assuntos estudados nessa disciplina pra reforçar. Sem problema —
             vamos direto pro estudo de hoje.
           </p>
+          {camposDesempenho}
           <button
             type="submit"
             className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
@@ -215,6 +238,22 @@ export default async function SessaoPage() {
           className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
         >
           {proximoAssunto ? "Concluí o estudo" : "Continuar"}
+        </button>
+      </form>
+    );
+  }
+
+  if (etapaAtual.tipo === "descanso") {
+    conteudo = (
+      <form action={concluirDescanso.bind(null, etapaAtual.id, sessao.id)}>
+        <p className="text-sm text-foreground/60">
+          Levante, beba água, descanse a vista. Volte em alguns minutos pra continuar.
+        </p>
+        <button
+          type="submit"
+          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
+          Continuar
         </button>
       </form>
     );
@@ -428,7 +467,8 @@ export default async function SessaoPage() {
             <Cronometro
               tempoAcumuladoSegundos={etapaAtual.tempo_acumulado_segundos}
               iniciadaEm={etapaAtual.iniciada_em}
-              sugeridoMinutos={sugeridoMinutos(etapaAtual.tipo)}
+              sugeridoMinutos={MINUTOS_SUGERIDOS[etapaAtual.tipo]}
+              sugeridoLabel={SUGERIDO_LABEL[etapaAtual.tipo]}
             />
             {etapaAtual.iniciada_em ? (
               <form action={pausarEtapa.bind(null, etapaAtual.id)}>

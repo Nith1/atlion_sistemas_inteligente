@@ -10,12 +10,12 @@ type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 // toda sessão começa com Ativação Cognitiva e Estudo, e termina com Questões;
 // o meio (consolidação) muda de acordo com a natureza da disciplina.
 const ETAPAS_POR_TIPO: Record<string, string[]> = {
-  juridica: ["ativacao_cognitiva", "estudo", "lei_seca", "jurisprudencia", "questoes"],
-  exatas: ["ativacao_cognitiva", "estudo", "exercicios", "questoes"],
-  informatica: ["ativacao_cognitiva", "estudo", "laboratorio", "questoes"],
-  humanas: ["ativacao_cognitiva", "estudo", "exercicios", "questoes"],
-  idiomas: ["ativacao_cognitiva", "estudo", "exercicios", "questoes"],
-  personalizada: ["ativacao_cognitiva", "estudo", "exercicios", "questoes"],
+  juridica: ["ativacao_cognitiva", "estudo", "descanso", "lei_seca", "jurisprudencia", "questoes"],
+  exatas: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
+  informatica: ["ativacao_cognitiva", "estudo", "descanso", "laboratorio", "questoes"],
+  humanas: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
+  idiomas: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
+  personalizada: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
 };
 
 async function requireUser() {
@@ -202,6 +202,15 @@ export async function concluirAtivacaoCognitiva(
       .in("id", assuntoIds);
   }
 
+  await avancarEtapa(supabase, etapaId, sessaoId, {
+    ativacao_certas: formData.has("certas") ? Math.max(0, Number(formData.get("certas") ?? 0)) : null,
+    ativacao_erradas: formData.has("erradas") ? Math.max(0, Number(formData.get("erradas") ?? 0)) : null,
+    ativacao_anki: formData.has("anki") ? formData.get("anki") === "on" : null,
+  });
+}
+
+export async function concluirDescanso(etapaId: string, sessaoId: string) {
+  const { supabase } = await requireUser();
   await avancarEtapa(supabase, etapaId, sessaoId);
 }
 
