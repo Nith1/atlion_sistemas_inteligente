@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { sair } from "./actions";
+import { iniciarSessao } from "../sessao/actions";
 
 export default async function PainelPage() {
   const supabase = await createClient();
@@ -24,17 +25,14 @@ export default async function PainelPage() {
       <p className="text-sm text-foreground/60">Planejamento para</p>
       <h1 className="mt-1 text-2xl font-semibold text-foreground">{profile.concurso}</h1>
 
-      <button
-        type="button"
-        disabled
-        className="mt-10 rounded-md bg-gold px-8 py-4 text-lg font-semibold text-navy opacity-60"
-        title="Sessão adaptativa ainda não implementada"
-      >
-        Estudar Agora
-      </button>
-      <p className="mt-3 text-xs text-foreground/50">
-        (próxima etapa do produto — ainda não implementada)
-      </p>
+      <form action={iniciarSessao}>
+        <button
+          type="submit"
+          className="mt-10 rounded-md bg-gold px-8 py-4 text-lg font-semibold text-navy hover:opacity-90"
+        >
+          Estudar Agora
+        </button>
+      </form>
 
       <Link
         href="/planejamento"
