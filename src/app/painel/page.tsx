@@ -48,6 +48,13 @@ export default async function PainelPage() {
         Caderno de erros
       </Link>
 
+      <Link
+        href="/estatisticas"
+        className="mt-3 text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
+      >
+        Estatísticas
+      </Link>
+
       <form action={sair} className="mt-16">
         <button type="submit" className="text-sm text-foreground/50 hover:text-foreground">
           Sair
