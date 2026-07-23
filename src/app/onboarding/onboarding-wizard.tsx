@@ -164,6 +164,7 @@ export function OnboardingWizard() {
       {etapa === 5 && (
         <Step
           titulo="Quais disciplinas você pretende estudar?"
+          subtitulo="Só o nome por agora — depois, no Planejamento, você cola o edital ou o índice do livro e a gente organiza os assuntos de cada uma."
           onContinuar={avancar}
           onVoltar={voltar}
           podeContinuar={form.disciplinas.length > 0}

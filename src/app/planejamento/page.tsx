@@ -198,7 +198,10 @@ export default async function PlanejamentoPage() {
 
               <div className="mt-4 space-y-2">
                 {totalAssuntos === 0 && (
-                  <p className="text-sm text-foreground/50">Nenhum assunto ainda.</p>
+                  <p className="text-sm text-foreground/50">
+                    Nenhum assunto ainda — cole o edital ou o índice do livro logo abaixo pra
+                    começar rápido.
+                  </p>
                 )}
 
                 {totalAssuntos > 0 && (
@@ -236,7 +239,7 @@ export default async function PlanejamentoPage() {
                   </button>
                 </form>
 
-                <details className="pt-1">
+                <details className="pt-1" open={totalAssuntos === 0}>
                   <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
                     colar vários assuntos de uma vez
                   </summary>
