@@ -190,7 +190,7 @@ export function OnboardingWizard() {
                   className="flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm outline-none focus:border-gold sm:flex-none"
                 >
                   {DISCIPLINA_TIPOS.map((tipo) => (
-                    <option key={tipo.value} value={tipo.value}>
+                    <option key={tipo.value} value={tipo.value} className="bg-background text-foreground">
                       {tipo.label}
                     </option>
                   ))}

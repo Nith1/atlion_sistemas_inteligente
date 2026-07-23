@@ -38,6 +38,70 @@ type Disciplina = {
   assuntos: Assunto[];
 };
 
+function LinhaAssunto({
+  assunto,
+  disciplinaId,
+  podeSubir,
+  podeDescer,
+}: {
+  assunto: Assunto;
+  disciplinaId: string;
+  podeSubir: boolean;
+  podeDescer: boolean;
+}) {
+  return (
+    <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2">
+        <form action={alternarEstudado.bind(null, assunto.id, !assunto.ja_estudado)}>
+          <button
+            type="submit"
+            title="Marcar como estudado/não estudado"
+            className={`rounded px-2 py-1 text-xs font-medium ${
+              assunto.ja_estudado
+                ? "bg-gold/20 text-foreground"
+                : "bg-foreground/5 text-foreground/50"
+            }`}
+          >
+            {assunto.ja_estudado ? "estudado" : "não estudado"}
+          </button>
+        </form>
+        <span>{assunto.nome}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <form action={moverAssunto.bind(null, disciplinaId, assunto.id, "up")}>
+          <button
+            type="submit"
+            disabled={!podeSubir}
+            className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
+            aria-label={`Mover ${assunto.nome} pra cima`}
+          >
+            ↑
+          </button>
+        </form>
+        <form action={moverAssunto.bind(null, disciplinaId, assunto.id, "down")}>
+          <button
+            type="submit"
+            disabled={!podeDescer}
+            className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
+            aria-label={`Mover ${assunto.nome} pra baixo`}
+          >
+            ↓
+          </button>
+        </form>
+        <form action={removerAssunto.bind(null, assunto.id)}>
+          <button
+            type="submit"
+            className="px-1 text-foreground/40 hover:text-red-600"
+            aria-label={`Remover ${assunto.nome}`}
+          >
+            remover
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function renderAssuntos(
   todos: Assunto[],
   disciplinaId: string,
@@ -50,65 +114,37 @@ function renderAssuntos(
 
   if (filhos.length === 0) return null;
 
-  return (
-    <ul
-      className={
-        nivel === 0
-          ? "divide-y divide-foreground/10"
-          : "mt-1 space-y-1 border-l border-foreground/10 pl-4"
-      }
-    >
-      {filhos.map((assunto, index) => (
-        <li key={assunto.id} className={nivel === 0 ? "py-2" : "py-1"}>
-          <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-2">
-              <form action={alternarEstudado.bind(null, assunto.id, !assunto.ja_estudado)}>
-                <button
-                  type="submit"
-                  title="Marcar como estudado/não estudado"
-                  className={`rounded px-2 py-1 text-xs font-medium ${
-                    assunto.ja_estudado
-                      ? "bg-gold/20 text-foreground"
-                      : "bg-foreground/5 text-foreground/50"
-                  }`}
-                >
-                  {assunto.ja_estudado ? "estudado" : "não estudado"}
-                </button>
-              </form>
-              <span>{assunto.nome}</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <form action={moverAssunto.bind(null, disciplinaId, assunto.id, "up")}>
-                <button
-                  type="submit"
-                  disabled={index === 0}
-                  className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
-                  aria-label={`Mover ${assunto.nome} pra cima`}
-                >
-                  ↑
-                </button>
-              </form>
-              <form action={moverAssunto.bind(null, disciplinaId, assunto.id, "down")}>
-                <button
-                  type="submit"
-                  disabled={index === filhos.length - 1}
-                  className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
-                  aria-label={`Mover ${assunto.nome} pra baixo`}
-                >
-                  ↓
-                </button>
-              </form>
-              <form action={removerAssunto.bind(null, assunto.id)}>
-                <button
-                  type="submit"
-                  className="px-1 text-foreground/40 hover:text-red-600"
-                  aria-label={`Remover ${assunto.nome}`}
-                >
-                  remover
-                </button>
-              </form>
-            </div>
+  // Nível 0: cada assunto principal (e seus subtópicos) vira um cartão
+  // separado, pra ficar visualmente claro onde um bloco termina e o outro
+  // começa. Sub-níveis ficam recuados com uma linha vertical dentro do cartão.
+  if (nivel === 0) {
+    return (
+      <div className="space-y-3">
+        {filhos.map((assunto, index) => (
+          <div key={assunto.id} className="rounded-md border border-foreground/10 bg-foreground/3 p-3">
+            <LinhaAssunto
+              assunto={assunto}
+              disciplinaId={disciplinaId}
+              podeSubir={index > 0}
+              podeDescer={index < filhos.length - 1}
+            />
+            {renderAssuntos(todos, disciplinaId, assunto.id, nivel + 1)}
           </div>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <ul className="mt-2 space-y-2 border-l border-foreground/10 pl-4">
+      {filhos.map((assunto, index) => (
+        <li key={assunto.id}>
+          <LinhaAssunto
+            assunto={assunto}
+            disciplinaId={disciplinaId}
+            podeSubir={index > 0}
+            podeDescer={index < filhos.length - 1}
+          />
           {renderAssuntos(todos, disciplinaId, assunto.id, nivel + 1)}
         </li>
       ))}
@@ -248,7 +284,7 @@ export default async function PlanejamentoPage() {
               className="flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm outline-none focus:border-gold sm:flex-none"
             >
               {DISCIPLINA_TIPOS.map((tipo) => (
-                <option key={tipo.value} value={tipo.value}>
+                <option key={tipo.value} value={tipo.value} className="bg-background text-foreground">
                   {tipo.label}
                 </option>
               ))}
