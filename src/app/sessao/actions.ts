@@ -84,6 +84,44 @@ async function iniciarProximaEtapa(supabase: SupabaseClient, sessaoId: string) {
   }
 }
 
+// Pausa o cronômetro da etapa atual: soma o que já correu ao acumulado e
+// zera o "início" (deixa de contar até a pessoa retomar).
+export async function pausarEtapa(etapaId: string) {
+  const { supabase } = await requireUser();
+
+  const { data: etapa } = await supabase
+    .from("sessao_etapas")
+    .select("iniciada_em, tempo_acumulado_segundos")
+    .eq("id", etapaId)
+    .single();
+
+  if (etapa?.iniciada_em) {
+    const decorrido = Math.max(0, Math.round((Date.now() - new Date(etapa.iniciada_em).getTime()) / 1000));
+    await supabase
+      .from("sessao_etapas")
+      .update({
+        tempo_acumulado_segundos: (etapa.tempo_acumulado_segundos ?? 0) + decorrido,
+        iniciada_em: null,
+        pausada: true,
+      })
+      .eq("id", etapaId);
+  }
+
+  revalidatePath("/sessao");
+}
+
+// Retoma a etapa pausada: volta a contar a partir de agora.
+export async function retomarEtapa(etapaId: string) {
+  const { supabase } = await requireUser();
+
+  await supabase
+    .from("sessao_etapas")
+    .update({ iniciada_em: new Date().toISOString(), pausada: false })
+    .eq("id", etapaId);
+
+  revalidatePath("/sessao");
+}
+
 export async function iniciarSessao() {
   const { supabase, user } = await requireUser();
 
@@ -126,13 +164,14 @@ async function avancarEtapa(
 ) {
   const { data: etapa } = await supabase
     .from("sessao_etapas")
-    .select("iniciada_em")
+    .select("iniciada_em, tempo_acumulado_segundos")
     .eq("id", etapaId)
     .single();
 
-  const tempoGastoSegundos = etapa?.iniciada_em
+  const decorridoAgora = etapa?.iniciada_em
     ? Math.max(0, Math.round((Date.now() - new Date(etapa.iniciada_em).getTime()) / 1000))
-    : null;
+    : 0;
+  const tempoGastoSegundos = (etapa?.tempo_acumulado_segundos ?? 0) + decorridoAgora;
 
   await supabase
     .from("sessao_etapas")

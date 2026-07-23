@@ -7,6 +7,8 @@ import {
   concluirJurisprudencia,
   concluirConsolidacao,
   concluirQuestoes,
+  pausarEtapa,
+  retomarEtapa,
 } from "./actions";
 import { Cronometro, TempoTotalHoje } from "./cronometro";
 
@@ -20,7 +22,9 @@ const ETAPA_LABELS: Record<string, string> = {
   questoes: "Questões",
 };
 
-const TEMPO_SUGERIDO_MINUTOS: Record<string, number> = {
+// Peso relativo de cada etapa dentro de uma sessão — usado só pra dividir o
+// tempo disponível do dia entre as etapas (não é tempo fixo em minutos).
+const PESO_ETAPA: Record<string, number> = {
   ativacao_cognitiva: 10,
   estudo: 25,
   lei_seca: 15,
@@ -49,6 +53,7 @@ type Etapa = {
   assunto_id: string | null;
   iniciada_em: string | null;
   tempo_gasto_segundos: number | null;
+  tempo_acumulado_segundos: number;
 };
 
 export default async function SessaoPage() {
@@ -76,7 +81,7 @@ export default async function SessaoPage() {
 
   const { data: etapasData } = await supabase
     .from("sessao_etapas")
-    .select("id, tipo, ordem, concluida, assunto_id, iniciada_em, tempo_gasto_segundos")
+    .select("id, tipo, ordem, concluida, assunto_id, iniciada_em, tempo_gasto_segundos, tempo_acumulado_segundos")
     .eq("sessao_id", sessao.id)
     .order("ordem", { ascending: true });
 
@@ -86,6 +91,34 @@ export default async function SessaoPage() {
   if (!disciplina || !etapaAtual) redirect("/painel");
 
   const etapaIndex = etapas.findIndex((e) => e.id === etapaAtual.id);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("ativacao_modo, horas_liquidas_dia")
+    .eq("id", user.id)
+    .single();
+
+  const { count: disciplinasAtivas } = await supabase
+    .from("disciplinas")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("ativa", true);
+
+  // Divide as horas líquidas do dia entre as disciplinas ativas (uma sessão
+  // por disciplina) e, dentro dessa sessão, entre as etapas — proporcional
+  // ao peso de cada uma. É só uma sugestão: o estudante pode ficar mais ou
+  // menos tempo em cada etapa.
+  const minutosPorSessao = profile?.horas_liquidas_dia
+    ? (profile.horas_liquidas_dia * 60) / Math.max(1, disciplinasAtivas ?? 1)
+    : null;
+  const pesoTotalSessao = etapas.reduce((soma, e) => soma + (PESO_ETAPA[e.tipo] ?? 0), 0);
+
+  function sugeridoMinutos(tipo: string): number | undefined {
+    const peso = PESO_ETAPA[tipo];
+    if (peso === undefined) return undefined;
+    if (!minutosPorSessao || !pesoTotalSessao) return peso;
+    return Math.max(2, Math.round((peso / pesoTotalSessao) * minutosPorSessao));
+  }
 
   // tempo total estudado hoje: soma o que já foi concluído hoje + o que a
   // etapa atual (em andamento) já rendeu até agora
@@ -106,12 +139,6 @@ export default async function SessaoPage() {
   let conteudo: React.ReactNode = null;
 
   if (etapaAtual.tipo === "ativacao_cognitiva") {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("ativacao_modo")
-      .eq("id", user.id)
-      .single();
-
     const { data: candidatos } = await supabase
       .from("assuntos")
       .select("id, nome, ultima_vez_estudado")
@@ -382,7 +409,11 @@ export default async function SessaoPage() {
             style={{ width: `${((etapaIndex + 1) / etapas.length) * 100}%` }}
           />
         </div>
-        <TempoTotalHoje baseSegundos={tempoBaseHojeSegundos} iniciadaEmAtual={etapaAtual.iniciada_em} />
+        <TempoTotalHoje
+          baseSegundos={tempoBaseHojeSegundos}
+          etapaAtualAcumulado={etapaAtual.tempo_acumulado_segundos}
+          iniciadaEmAtual={etapaAtual.iniciada_em}
+        />
 
         <div className="mt-7 flex items-center justify-between">
           <div>
@@ -393,12 +424,41 @@ export default async function SessaoPage() {
               {ETAPA_LABELS[etapaAtual.tipo] ?? etapaAtual.tipo}
             </h1>
           </div>
-          {etapaAtual.iniciada_em && (
+          <div className="flex items-center gap-3">
             <Cronometro
+              tempoAcumuladoSegundos={etapaAtual.tempo_acumulado_segundos}
               iniciadaEm={etapaAtual.iniciada_em}
-              sugeridoMinutos={TEMPO_SUGERIDO_MINUTOS[etapaAtual.tipo]}
+              sugeridoMinutos={sugeridoMinutos(etapaAtual.tipo)}
             />
-          )}
+            {etapaAtual.iniciada_em ? (
+              <form action={pausarEtapa.bind(null, etapaAtual.id)}>
+                <button
+                  type="submit"
+                  title="Pausar"
+                  aria-label="Pausar cronômetro"
+                  className="rounded-full p-1.5 text-foreground/50 ring-1 ring-foreground/10 hover:text-foreground hover:ring-foreground/30"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <rect x="3" y="2" width="3" height="10" />
+                    <rect x="8" y="2" width="3" height="10" />
+                  </svg>
+                </button>
+              </form>
+            ) : (
+              <form action={retomarEtapa.bind(null, etapaAtual.id)}>
+                <button
+                  type="submit"
+                  title="Retomar"
+                  aria-label="Retomar cronômetro"
+                  className="rounded-full p-1.5 text-foreground/50 ring-1 ring-foreground/10 hover:text-foreground hover:ring-foreground/30"
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <path d="M3 2 L12 7 L3 12 Z" />
+                  </svg>
+                </button>
+              </form>
+            )}
+          </div>
         </div>
 
         <div className="mt-6">{conteudo}</div>

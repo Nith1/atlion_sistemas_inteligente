@@ -12,21 +12,33 @@ function segundosDesde(iso: string): number {
   return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
 }
 
-// Cronômetro da etapa atual — conta sozinho a partir de quando a etapa
-// começou (guardado no banco), sem precisar o usuário apertar play.
+// Cronômetro da etapa atual — soma o que já foi acumulado (antes de uma
+// eventual pausa) com o tempo ao vivo desde que voltou a contar. Se
+// `iniciadaEm` for null, a etapa está pausada e o tempo fica parado.
 export function Cronometro({
+  tempoAcumuladoSegundos,
   iniciadaEm,
   sugeridoMinutos,
 }: {
-  iniciadaEm: string;
+  tempoAcumuladoSegundos: number;
+  iniciadaEm: string | null;
   sugeridoMinutos?: number;
 }) {
-  const [segundos, setSegundos] = useState(() => segundosDesde(iniciadaEm));
+  const [segundos, setSegundos] = useState(
+    () => tempoAcumuladoSegundos + (iniciadaEm ? segundosDesde(iniciadaEm) : 0)
+  );
 
   useEffect(() => {
-    const id = setInterval(() => setSegundos(segundosDesde(iniciadaEm)), 1000);
+    if (!iniciadaEm) {
+      setSegundos(tempoAcumuladoSegundos);
+      return;
+    }
+    setSegundos(tempoAcumuladoSegundos + segundosDesde(iniciadaEm));
+    const id = setInterval(() => {
+      setSegundos(tempoAcumuladoSegundos + segundosDesde(iniciadaEm));
+    }, 1000);
     return () => clearInterval(id);
-  }, [iniciadaEm]);
+  }, [iniciadaEm, tempoAcumuladoSegundos]);
 
   const passouSugerido = sugeridoMinutos !== undefined && segundos >= sugeridoMinutos * 60;
 
@@ -35,6 +47,7 @@ export function Cronometro({
       <span className={`font-mono text-sm ${passouSugerido ? "text-gold" : "text-foreground/70"}`}>
         {formatarTempo(segundos)}
       </span>
+      {!iniciadaEm && <span className="text-xs text-foreground/40">pausado</span>}
       {sugeridoMinutos !== undefined && (
         <span className="text-xs text-foreground/40">sugestão: {sugeridoMinutos} min</span>
       )}
@@ -42,13 +55,15 @@ export function Cronometro({
   );
 }
 
-// Tempo total estudado hoje: soma o que já foi concluído (fixo) + o tempo ao
-// vivo da etapa em andamento, se houver.
+// Tempo total estudado hoje: soma o que já foi concluído (fixo) + o que a
+// etapa atual já acumulou + o tempo ao vivo dela, se estiver rodando.
 export function TempoTotalHoje({
   baseSegundos,
+  etapaAtualAcumulado,
   iniciadaEmAtual,
 }: {
   baseSegundos: number;
+  etapaAtualAcumulado: number;
   iniciadaEmAtual: string | null;
 }) {
   const [segundosAtual, setSegundosAtual] = useState(() =>
@@ -56,14 +71,19 @@ export function TempoTotalHoje({
   );
 
   useEffect(() => {
-    if (!iniciadaEmAtual) return;
+    if (!iniciadaEmAtual) {
+      setSegundosAtual(0);
+      return;
+    }
+    setSegundosAtual(segundosDesde(iniciadaEmAtual));
     const id = setInterval(() => setSegundosAtual(segundosDesde(iniciadaEmAtual)), 1000);
     return () => clearInterval(id);
   }, [iniciadaEmAtual]);
 
   return (
     <p className="text-xs text-foreground/40">
-      Tempo estudado hoje: <span className="font-mono">{formatarTempo(baseSegundos + segundosAtual)}</span>
+      Tempo estudado hoje:{" "}
+      <span className="font-mono">{formatarTempo(baseSegundos + etapaAtualAcumulado + segundosAtual)}</span>
     </p>
   );
 }
