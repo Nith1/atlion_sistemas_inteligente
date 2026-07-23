@@ -7,9 +7,11 @@ import {
   adicionarAssunto,
   adicionarAssuntosEmLote,
   removerAssunto,
+  removerTodosAssuntos,
   alternarEstudado,
   moverAssunto,
 } from "./actions";
+import { ConfirmButton } from "./confirm-button";
 
 const DISCIPLINA_TIPOS: { value: string; label: string }[] = [
   { value: "juridica", label: "Jurídica" },
@@ -25,6 +27,7 @@ type Assunto = {
   nome: string;
   ordem: number;
   ja_estudado: boolean;
+  parent_id: string | null;
 };
 
 type Disciplina = {
@@ -34,6 +37,84 @@ type Disciplina = {
   ordem: number;
   assuntos: Assunto[];
 };
+
+function renderAssuntos(
+  todos: Assunto[],
+  disciplinaId: string,
+  parentId: string | null,
+  nivel: number
+) {
+  const filhos = todos
+    .filter((a) => a.parent_id === parentId)
+    .sort((a, b) => a.ordem - b.ordem);
+
+  if (filhos.length === 0) return null;
+
+  return (
+    <ul
+      className={
+        nivel === 0
+          ? "divide-y divide-foreground/10"
+          : "mt-1 space-y-1 border-l border-foreground/10 pl-4"
+      }
+    >
+      {filhos.map((assunto, index) => (
+        <li key={assunto.id} className={nivel === 0 ? "py-2" : "py-1"}>
+          <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <form action={alternarEstudado.bind(null, assunto.id, !assunto.ja_estudado)}>
+                <button
+                  type="submit"
+                  title="Marcar como estudado/não estudado"
+                  className={`rounded px-2 py-1 text-xs font-medium ${
+                    assunto.ja_estudado
+                      ? "bg-gold/20 text-foreground"
+                      : "bg-foreground/5 text-foreground/50"
+                  }`}
+                >
+                  {assunto.ja_estudado ? "estudado" : "não estudado"}
+                </button>
+              </form>
+              <span>{assunto.nome}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <form action={moverAssunto.bind(null, disciplinaId, assunto.id, "up")}>
+                <button
+                  type="submit"
+                  disabled={index === 0}
+                  className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
+                  aria-label={`Mover ${assunto.nome} pra cima`}
+                >
+                  ↑
+                </button>
+              </form>
+              <form action={moverAssunto.bind(null, disciplinaId, assunto.id, "down")}>
+                <button
+                  type="submit"
+                  disabled={index === filhos.length - 1}
+                  className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
+                  aria-label={`Mover ${assunto.nome} pra baixo`}
+                >
+                  ↓
+                </button>
+              </form>
+              <form action={removerAssunto.bind(null, assunto.id)}>
+                <button
+                  type="submit"
+                  className="px-1 text-foreground/40 hover:text-red-600"
+                  aria-label={`Remover ${assunto.nome}`}
+                >
+                  remover
+                </button>
+              </form>
+            </div>
+          </div>
+          {renderAssuntos(todos, disciplinaId, assunto.id, nivel + 1)}
+        </li>
+      ))}
+    </ul>
+  );
+}
 
 export default async function PlanejamentoPage() {
   const supabase = await createClient();
@@ -45,7 +126,7 @@ export default async function PlanejamentoPage() {
 
   const { data: disciplinas } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo, ordem, assuntos(id, nome, ordem, ja_estudado)")
+    .select("id, nome, tipo, ordem, assuntos(id, nome, ordem, ja_estudado, parent_id)")
     .eq("user_id", user.id)
     .order("ordem", { ascending: true })
     .returns<Disciplina[]>();
@@ -61,7 +142,7 @@ export default async function PlanejamentoPage() {
 
       <div className="space-y-4">
         {(disciplinas ?? []).map((disciplina) => {
-          const assuntos = [...disciplina.assuntos].sort((a, b) => a.ordem - b.ordem);
+          const totalAssuntos = disciplina.assuntos.length;
           return (
             <details key={disciplina.id} className="rounded-md border border-foreground/15 p-4" open>
               <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -69,7 +150,7 @@ export default async function PlanejamentoPage() {
                   {disciplina.nome}{" "}
                   <span className="text-sm text-foreground/50">
                     · {DISCIPLINA_TIPOS.find((t) => t.value === disciplina.tipo)?.label} ·{" "}
-                    {assuntos.length} assunto(s)
+                    {totalAssuntos} assunto(s)
                   </span>
                 </span>
                 <form action={removerDisciplina.bind(null, disciplina.id)}>
@@ -80,67 +161,24 @@ export default async function PlanejamentoPage() {
               </summary>
 
               <div className="mt-4 space-y-2">
-                {assuntos.length === 0 && (
+                {totalAssuntos === 0 && (
                   <p className="text-sm text-foreground/50">Nenhum assunto ainda.</p>
                 )}
 
-                {assuntos.length > 0 && (
-                  <ul className="divide-y divide-foreground/10">
-                    {assuntos.map((assunto, index) => (
-                      <li
-                        key={assunto.id}
-                        className="flex flex-col gap-2 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <form action={alternarEstudado.bind(null, assunto.id, !assunto.ja_estudado)}>
-                            <button
-                              type="submit"
-                              title="Marcar como estudado/não estudado"
-                              className={`rounded px-2 py-1 text-xs font-medium ${
-                                assunto.ja_estudado
-                                  ? "bg-gold/20 text-foreground"
-                                  : "bg-foreground/5 text-foreground/50"
-                              }`}
-                            >
-                              {assunto.ja_estudado ? "estudado" : "não estudado"}
-                            </button>
-                          </form>
-                          <span>{assunto.nome}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <form action={moverAssunto.bind(null, disciplina.id, assunto.id, "up")}>
-                            <button
-                              type="submit"
-                              disabled={index === 0}
-                              className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
-                              aria-label={`Mover ${assunto.nome} pra cima`}
-                            >
-                              ↑
-                            </button>
-                          </form>
-                          <form action={moverAssunto.bind(null, disciplina.id, assunto.id, "down")}>
-                            <button
-                              type="submit"
-                              disabled={index === assuntos.length - 1}
-                              className="px-1 text-foreground/40 hover:text-foreground disabled:opacity-20"
-                              aria-label={`Mover ${assunto.nome} pra baixo`}
-                            >
-                              ↓
-                            </button>
-                          </form>
-                          <form action={removerAssunto.bind(null, assunto.id)}>
-                            <button
-                              type="submit"
-                              className="px-1 text-foreground/40 hover:text-red-600"
-                              aria-label={`Remover ${assunto.nome}`}
-                            >
-                              remover
-                            </button>
-                          </form>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
+                {totalAssuntos > 0 && (
+                  <>
+                    <div className="flex justify-end">
+                      <form action={removerTodosAssuntos.bind(null, disciplina.id)}>
+                        <ConfirmButton
+                          mensagem={`Remover todos os ${totalAssuntos} assunto(s) de ${disciplina.nome}? Essa ação não pode ser desfeita.`}
+                          className="text-xs text-foreground/40 hover:text-red-600"
+                        >
+                          remover todos os assuntos
+                        </ConfirmButton>
+                      </form>
+                    </div>
+                    {renderAssuntos(disciplina.assuntos, disciplina.id, null, 0)}
+                  </>
                 )}
 
                 <form
@@ -175,7 +213,7 @@ export default async function PlanejamentoPage() {
                       rows={5}
                       required
                       placeholder={
-                        "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...). Ex:\n1 Poder constituinte. 1.1 Fundamentos do poder constituinte. 2 Direitos fundamentais."
+                        "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...) — os subtópicos (1.1, 1.2) ficam aninhados dentro do assunto principal. Ex:\n1 Poder constituinte. 1.1 Fundamentos do poder constituinte. 2 Direitos fundamentais."
                       }
                       className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
                     />

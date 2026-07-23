@@ -1,5 +1,6 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -72,8 +73,8 @@ function limparLinha(linha: string): string {
 // tópicos numerados em sequência (ex: "1 Poder constituinte. 1.1 Fundamentos...
 // 1.2 Poder constituinte originário e derivado. 2 Direitos fundamentais..."),
 // às vezes com um ponto extra depois do número ("4. Ética no setor público.").
-// Quebra cada trecho num assunto separado, exigindo que o texto do tópico
-// comece com maiúscula — evita separar em falso em citações como "art. 37".
+// Quebra cada trecho num tópico separado, exigindo que o texto comece com
+// maiúscula — evita separar em falso em citações como "art. 37".
 function explodirTopicosDeEdital(linha: string): string[] {
   const partes = linha
     // remove um cabeçalho de matéria em maiúsculas antes dos dois-pontos (ex: "DIREITO CONSTITUCIONAL: ")
@@ -83,19 +84,28 @@ function explodirTopicosDeEdital(linha: string): string[] {
   return partes.length > 1 ? partes : [linha];
 }
 
-function extrairAssuntos(texto: string): string[] {
+type Topico = { nivel: number; nome: string };
+
+// A profundidade da numeração ("1" → nível 1, "1.1" → nível 2, "1.1.1" → nível
+// 3...) vira profundidade de sub-assunto. Uma linha sem numeração (lista simples,
+// um por linha) sempre vira nível 1.
+function extrairTopicos(texto: string): Topico[] {
   return texto
     .split("\n")
     .flatMap(explodirTopicosDeEdital)
-    .map(limparLinha)
-    .filter((nome) => nome.length > 0);
+    .map((trecho) => {
+      const bruto = trecho.trim();
+      const numeracao = bruto.match(/^(\d+(?:\.\d+)*)\.?\s+/);
+      const nivel = numeracao ? numeracao[1].split(".").length : 1;
+      return { nivel, nome: limparLinha(bruto) };
+    })
+    .filter((topico) => topico.nome.length > 0);
 }
 
 export async function adicionarAssuntosEmLote(disciplinaId: string, formData: FormData) {
   const texto = (formData.get("texto") as string) ?? "";
-  const nomes = extrairAssuntos(texto);
-
-  if (nomes.length === 0) return;
+  const topicos = extrairTopicos(texto);
+  if (topicos.length === 0) return;
 
   const { supabase } = await requireUser();
   const { count } = await supabase
@@ -104,20 +114,38 @@ export async function adicionarAssuntosEmLote(disciplinaId: string, formData: Fo
     .eq("disciplina_id", disciplinaId);
 
   const base = count ?? 0;
-  await supabase.from("assuntos").insert(
-    nomes.map((nome, indice) => ({
-      disciplina_id: disciplinaId,
-      nome,
-      ordem: base + indice,
-    }))
-  );
+  // pilha[i] guarda o id do último tópico visto no nível i+1, pra ligar cada
+  // sub-assunto ao seu pai mais recente (ex: "1.1" vira filho do último "1").
+  const pilha: string[] = [];
 
+  const linhas = topicos.map((topico, indice) => {
+    const id = randomUUID();
+    const parentId = topico.nivel > 1 ? pilha[topico.nivel - 2] ?? null : null;
+    pilha[topico.nivel - 1] = id;
+    pilha.length = topico.nivel;
+
+    return {
+      id,
+      disciplina_id: disciplinaId,
+      nome: topico.nome,
+      ordem: base + indice,
+      parent_id: parentId,
+    };
+  });
+
+  await supabase.from("assuntos").insert(linhas);
   revalidatePath("/planejamento");
 }
 
 export async function removerAssunto(assuntoId: string) {
   const { supabase } = await requireUser();
   await supabase.from("assuntos").delete().eq("id", assuntoId);
+  revalidatePath("/planejamento");
+}
+
+export async function removerTodosAssuntos(disciplinaId: string) {
+  const { supabase } = await requireUser();
+  await supabase.from("assuntos").delete().eq("disciplina_id", disciplinaId);
   revalidatePath("/planejamento");
 }
 
@@ -139,19 +167,35 @@ export async function moverAssunto(
   direcao: "up" | "down"
 ) {
   const { supabase } = await requireUser();
-  const { data: assuntos } = await supabase
+
+  const { data: atualRow } = await supabase
+    .from("assuntos")
+    .select("parent_id")
+    .eq("id", assuntoId)
+    .single();
+
+  if (!atualRow) return;
+
+  // reordena só entre irmãos (mesmo pai), não entre a lista inteira da disciplina
+  let query = supabase
     .from("assuntos")
     .select("id, ordem")
     .eq("disciplina_id", disciplinaId)
     .order("ordem", { ascending: true });
 
-  if (!assuntos) return;
-  const index = assuntos.findIndex((a) => a.id === assuntoId);
-  const swapIndex = direcao === "up" ? index - 1 : index + 1;
-  if (index === -1 || swapIndex < 0 || swapIndex >= assuntos.length) return;
+  query = atualRow.parent_id
+    ? query.eq("parent_id", atualRow.parent_id)
+    : query.is("parent_id", null);
 
-  const atual = assuntos[index];
-  const vizinho = assuntos[swapIndex];
+  const { data: irmaos } = await query;
+
+  if (!irmaos) return;
+  const index = irmaos.findIndex((a) => a.id === assuntoId);
+  const swapIndex = direcao === "up" ? index - 1 : index + 1;
+  if (index === -1 || swapIndex < 0 || swapIndex >= irmaos.length) return;
+
+  const atual = irmaos[index];
+  const vizinho = irmaos[swapIndex];
 
   await supabase.from("assuntos").update({ ordem: vizinho.ordem }).eq("id", atual.id);
   await supabase.from("assuntos").update({ ordem: atual.ordem }).eq("id", vizinho.id);
