@@ -429,6 +429,15 @@ export default async function SessaoPage() {
             />
           </div>
         </div>
+        <div className="mt-4">
+          <label className="block text-xs text-foreground/50">Se errou algo, o que vale revisar depois</label>
+          <textarea
+            name="anotacao"
+            rows={2}
+            placeholder="Ex: confundi prazo de recurso com o de prescrição"
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+        </div>
         <button
           type="submit"
           className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"

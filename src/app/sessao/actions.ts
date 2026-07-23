@@ -304,16 +304,18 @@ export async function concluirQuestoes(
 
   const certas = Math.max(0, Number(formData.get("certas") ?? 0));
   const erradas = Math.max(0, Number(formData.get("erradas") ?? 0));
+  const anotacaoErros = erradas > 0 ? (formData.get("anotacao") as string)?.trim() || null : null;
 
   const registros = [
-    ...Array(certas).fill(true),
-    ...Array(erradas).fill(false),
-  ].map((acertou: boolean) => ({
+    ...Array(certas).fill({ acertou: true, anotacao: null }),
+    ...Array(erradas).fill({ acertou: false, anotacao: anotacaoErros }),
+  ].map(({ acertou, anotacao }: { acertou: boolean; anotacao: string | null }) => ({
     user_id: user.id,
     disciplina_id: disciplinaId,
     assunto_id: assuntoId,
     sessao_id: sessaoId,
     acertou,
+    anotacao,
   }));
 
   if (registros.length > 0) {

@@ -35,7 +35,8 @@ export async function updateSession(request: NextRequest) {
     path.startsWith("/onboarding") ||
     path.startsWith("/painel") ||
     path.startsWith("/planejamento") ||
-    path.startsWith("/sessao");
+    path.startsWith("/sessao") ||
+    path.startsWith("/caderno-erros");
 
   if (!user && rotaProtegida) {
     const url = request.nextUrl.clone();

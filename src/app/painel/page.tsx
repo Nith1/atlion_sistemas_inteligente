@@ -41,6 +41,13 @@ export default async function PainelPage() {
         Gerenciar disciplinas e assuntos
       </Link>
 
+      <Link
+        href="/caderno-erros"
+        className="mt-3 text-sm text-foreground/70 underline underline-offset-4 hover:text-foreground"
+      >
+        Caderno de erros
+      </Link>
+
       <form action={sair} className="mt-16">
         <button type="submit" className="text-sm text-foreground/50 hover:text-foreground">
           Sair
