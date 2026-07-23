@@ -59,6 +59,41 @@ export async function adicionarAssunto(disciplinaId: string, formData: FormData)
   revalidatePath("/planejamento");
 }
 
+function limparLinha(linha: string): string {
+  return linha
+    .trim()
+    .replace(/^[-•*]\s+/, "")
+    .replace(/^\d+(\.\d+)*[.)]?\s+/, "")
+    .trim();
+}
+
+export async function adicionarAssuntosEmLote(disciplinaId: string, formData: FormData) {
+  const texto = (formData.get("texto") as string) ?? "";
+  const nomes = texto
+    .split("\n")
+    .map(limparLinha)
+    .filter((nome) => nome.length > 0);
+
+  if (nomes.length === 0) return;
+
+  const { supabase } = await requireUser();
+  const { count } = await supabase
+    .from("assuntos")
+    .select("id", { count: "exact", head: true })
+    .eq("disciplina_id", disciplinaId);
+
+  const base = count ?? 0;
+  await supabase.from("assuntos").insert(
+    nomes.map((nome, indice) => ({
+      disciplina_id: disciplinaId,
+      nome,
+      ordem: base + indice,
+    }))
+  );
+
+  revalidatePath("/planejamento");
+}
+
 export async function removerAssunto(assuntoId: string) {
   const { supabase } = await requireUser();
   await supabase.from("assuntos").delete().eq("id", assuntoId);

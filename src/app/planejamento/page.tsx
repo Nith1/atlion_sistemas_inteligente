@@ -5,6 +5,7 @@ import {
   adicionarDisciplina,
   removerDisciplina,
   adicionarAssunto,
+  adicionarAssuntosEmLote,
   removerAssunto,
   alternarEstudado,
   moverAssunto,
@@ -160,6 +161,32 @@ export default async function PlanejamentoPage() {
                     Adicionar assunto
                   </button>
                 </form>
+
+                <details className="pt-1">
+                  <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
+                    colar vários assuntos de uma vez
+                  </summary>
+                  <form
+                    action={adicionarAssuntosEmLote.bind(null, disciplina.id)}
+                    className="mt-2 space-y-2"
+                  >
+                    <textarea
+                      name="texto"
+                      rows={5}
+                      required
+                      placeholder={
+                        "Cole o índice do livro ou o edital, um assunto por linha. Ex:\nDireitos fundamentais\nControle de constitucionalidade\nOrganização do Estado"
+                      }
+                      className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+                    >
+                      Adicionar todos
+                    </button>
+                  </form>
+                </details>
               </div>
             </details>
           );
