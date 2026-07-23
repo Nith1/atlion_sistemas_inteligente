@@ -175,7 +175,7 @@ export default async function PlanejamentoPage() {
                       rows={5}
                       required
                       placeholder={
-                        "Cole o índice do livro ou o edital, um assunto por linha. Ex:\nDireitos fundamentais\nControle de constitucionalidade\nOrganização do Estado"
+                        "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...). Ex:\n1 Poder constituinte. 1.1 Fundamentos do poder constituinte. 2 Direitos fundamentais."
                       }
                       className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
                     />

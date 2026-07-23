@@ -63,16 +63,37 @@ function limparLinha(linha: string): string {
   return linha
     .trim()
     .replace(/^[-•*]\s+/, "")
-    .replace(/^\d+(\.\d+)*[.)]?\s+/, "")
+    .replace(/^\d+(\.\d+)*\.?\s+/, "")
+    .replace(/\.\s*$/, "")
     .trim();
+}
+
+// Editais (padrão Cebraspe e similares) costumam vir num parágrafo só, com os
+// tópicos numerados em sequência (ex: "1 Poder constituinte. 1.1 Fundamentos...
+// 1.2 Poder constituinte originário e derivado. 2 Direitos fundamentais..."),
+// às vezes com um ponto extra depois do número ("4. Ética no setor público.").
+// Quebra cada trecho num assunto separado, exigindo que o texto do tópico
+// comece com maiúscula — evita separar em falso em citações como "art. 37".
+function explodirTopicosDeEdital(linha: string): string[] {
+  const partes = linha
+    // remove um cabeçalho de matéria em maiúsculas antes dos dois-pontos (ex: "DIREITO CONSTITUCIONAL: ")
+    .replace(/^[A-ZÀ-Ú][A-ZÀ-Ú\s()/-]{2,}:\s*/, "")
+    .split(/(?<=\.)\s+(?=\d+(?:\.\d+)*\.?\s+[A-ZÀ-Ú])/);
+
+  return partes.length > 1 ? partes : [linha];
+}
+
+function extrairAssuntos(texto: string): string[] {
+  return texto
+    .split("\n")
+    .flatMap(explodirTopicosDeEdital)
+    .map(limparLinha)
+    .filter((nome) => nome.length > 0);
 }
 
 export async function adicionarAssuntosEmLote(disciplinaId: string, formData: FormData) {
   const texto = (formData.get("texto") as string) ?? "";
-  const nomes = texto
-    .split("\n")
-    .map(limparLinha)
-    .filter((nome) => nome.length > 0);
+  const nomes = extrairAssuntos(texto);
 
   if (nomes.length === 0) return;
 
