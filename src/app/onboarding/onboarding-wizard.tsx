@@ -114,7 +114,7 @@ export function OnboardingWizard() {
             value={form.concurso}
             onChange={(e) => setForm({ ...form, concurso: e.target.value })}
             placeholder="Ex: Auditor Fiscal, PRF, Escrevente TJ..."
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
+            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
         </Step>
       )}
@@ -145,7 +145,7 @@ export function OnboardingWizard() {
             value={form.horasLiquidasDia}
             onChange={(e) => setForm({ ...form, horasLiquidasDia: e.target.value })}
             placeholder="Ex: 3"
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
+            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
         </Step>
       )}
@@ -169,7 +169,7 @@ export function OnboardingWizard() {
           podeContinuar={form.disciplinas.length > 0}
         >
           <div className="space-y-3">
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
                 value={novaDisciplina}
@@ -181,26 +181,28 @@ export function OnboardingWizard() {
                   }
                 }}
                 placeholder="Nome da disciplina"
-                className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
+                className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
               />
-              <select
-                value={novoTipo}
-                onChange={(e) => setNovoTipo(e.target.value)}
-                className="rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm outline-none focus:border-navy"
-              >
-                {DISCIPLINA_TIPOS.map((tipo) => (
-                  <option key={tipo.value} value={tipo.value}>
-                    {tipo.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={adicionarDisciplina}
-                className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Adicionar
-              </button>
+              <div className="flex gap-2">
+                <select
+                  value={novoTipo}
+                  onChange={(e) => setNovoTipo(e.target.value)}
+                  className="flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm outline-none focus:border-gold sm:flex-none"
+                >
+                  {DISCIPLINA_TIPOS.map((tipo) => (
+                    <option key={tipo.value} value={tipo.value}>
+                      {tipo.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={adicionarDisciplina}
+                  className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+                >
+                  Adicionar
+                </button>
+              </div>
             </div>
 
             {form.disciplinas.length > 0 && (
@@ -243,7 +245,7 @@ export function OnboardingWizard() {
             value={form.cursoPreparatorio}
             onChange={(e) => setForm({ ...form, cursoPreparatorio: e.target.value })}
             placeholder="Ex: Gran Cursos, Estratégia..."
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
+            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
         </Step>
       )}
@@ -266,7 +268,7 @@ export function OnboardingWizard() {
                 onClick={() => setForm({ ...form, ativacaoModo: modo.value })}
                 className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${
                   form.ativacaoModo === modo.value
-                    ? "border-navy bg-navy/5"
+                    ? "border-gold bg-gold/10"
                     : "border-foreground/20 hover:border-foreground/40"
                 }`}
               >
@@ -303,7 +305,7 @@ function Step({
 }) {
   return (
     <div>
-      <h1 className="text-xl font-semibold text-navy">{titulo}</h1>
+      <h1 className="text-xl font-semibold text-foreground">{titulo}</h1>
       {subtitulo && <p className="mt-1 text-sm text-foreground/60">{subtitulo}</p>}
       <div className="mt-6">{children}</div>
       <div className="mt-8 flex items-center justify-between">
@@ -322,7 +324,7 @@ function Step({
           type="button"
           onClick={onContinuar}
           disabled={!podeContinuar || desabilitarContinuar}
-          className="rounded-md bg-navy px-5 py-2 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-40"
+          className="rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90 disabled:opacity-40"
         >
           {textoContinuar}
         </button>
@@ -350,7 +352,7 @@ function SimNao({
           onClick={() => onEscolher(opcao.value)}
           className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition ${
             valor === opcao.value
-              ? "border-navy bg-navy/5"
+              ? "border-gold bg-gold/10"
               : "border-foreground/20 hover:border-foreground/40"
           }`}
         >

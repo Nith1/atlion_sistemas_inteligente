@@ -14,14 +14,14 @@ export default async function LoginPage() {
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
-        <h1 className="text-2xl font-semibold text-navy">Entrar</h1>
+        <h1 className="text-2xl font-semibold text-foreground">Entrar</h1>
         <p className="mt-2 text-sm text-foreground/70">
           Continue de onde você parou.
         </p>
         <LoginForm />
         <p className="mt-8 text-sm text-foreground/70">
           Ainda não tem conta?{" "}
-          <Link href="/signup" className="text-navy underline underline-offset-4">
+          <Link href="/signup" className="text-foreground underline underline-offset-4">
             Criar conta
           </Link>
         </p>

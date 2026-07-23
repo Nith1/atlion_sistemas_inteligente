@@ -21,7 +21,7 @@ export default async function PainelPage() {
   return (
     <main className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
       <p className="text-sm text-foreground/60">Planejamento para</p>
-      <h1 className="mt-1 text-2xl font-semibold text-navy">{profile.concurso}</h1>
+      <h1 className="mt-1 text-2xl font-semibold text-foreground">{profile.concurso}</h1>
 
       <button
         type="button"

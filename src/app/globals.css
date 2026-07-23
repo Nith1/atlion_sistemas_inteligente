@@ -1,8 +1,12 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light dark;
   --background: #fafaf8;
   --foreground: #1c2733;
+  /* --navy é tinta fixa (não muda com o tema): só serve pra texto/preenchimento
+     sobre superfícies claras/douradas, onde precisa ficar sempre escura pra
+     contrastar. Título e corpo de texto usam --foreground, que já é adaptável. */
   --navy: #142440;
   --gold: #c9a227;
 }
