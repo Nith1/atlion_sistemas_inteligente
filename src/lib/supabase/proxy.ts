@@ -34,6 +34,7 @@ export async function updateSession(request: NextRequest) {
   const rotaProtegida =
     path.startsWith("/onboarding") ||
     path.startsWith("/painel") ||
+    path.startsWith("/dashboard") ||
     path.startsWith("/planejamento") ||
     path.startsWith("/sessao") ||
     path.startsWith("/caderno-erros") ||

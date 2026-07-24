@@ -8,6 +8,7 @@ import { iniciarSessao } from "./sessao/actions";
 import { sair } from "./painel/actions";
 
 const NAV_ITEMS = [
+  { href: "/dashboard", label: "Dashboard", Icone: IconeDashboard },
   { href: "/planejamento", label: "Planejamento", Icone: IconePlanejamento },
   { href: "/caderno-erros", label: "Caderno de Erros", Icone: IconeCaderno },
   { href: "/estatisticas", label: "Estatísticas", Icone: IconeEstatisticas },
@@ -124,6 +125,17 @@ function IconeEstudar(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
       <path d="M6 4l14 8-14 8V4Z" />
+    </svg>
+  );
+}
+
+function IconeDashboard(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+      <rect x="13" y="3" width="8" height="5" rx="1.5" />
+      <rect x="13" y="10" width="8" height="11" rx="1.5" />
+      <rect x="3" y="13" width="8" height="8" rx="1.5" />
     </svg>
   );
 }
