@@ -2,28 +2,57 @@ import { ScrollReveal } from "./scroll-reveal";
 
 const PERGUNTAS = [
   {
-    pergunta: "Preciso ter o edital pronto pra usar a ATLION?",
+    pergunta: "Funciona para qualquer concurso?",
     resposta:
-      "Não. Você pode colar um edital antigo ou o índice de um livro depois, na tela de Planejamento — a ATLION organiza os assuntos automaticamente.",
+      "Sim. Você cadastra suas disciplinas e materiais, e a ATLION adapta a preparação para qualquer área: jurídica, fiscal, policial, tribunais, controle, saúde, exatas, informática ou idiomas.",
   },
   {
-    pergunta: "A ATLION ensina o conteúdo, como um curso?",
+    pergunta: "A ATLION ensina o conteúdo como um curso?",
     resposta:
-      "Não. Você estuda no seu próprio material — curso, livro ou videoaula. A ATLION decide a ordem, o tempo e o momento certo de cada etapa.",
+      "Não. Você continua estudando pelo material que preferir: curso, livro, PDF ou videoaula. A ATLION decide apenas o que estudar, quando estudar e quanto tempo dedicar.",
   },
   {
-    pergunta: "Como a ATLION decide o que estudar a cada sessão?",
+    pergunta: "Como a ATLION sabe o que devo estudar em cada sessão?",
     resposta:
-      "Ela olha o que você já estudou e há quanto tempo, e monta a sessão com o pilar certo pra aquele momento — ativação, aprendizagem, consolidação ou prática.",
+      "Ela analisa continuamente seu histórico de estudos, revisões, desempenho, tempo sem contato com cada assunto e evolução. A partir desses dados, monta automaticamente a próxima sessão ideal.",
   },
   {
-    pergunta: "Funciona pra qualquer concurso?",
+    pergunta: "Preciso ter o edital para começar?",
     resposta:
-      "Sim. Você cadastra as disciplinas do seu concurso e o tipo de cada uma, e a sessão se adapta — jurídica, exatas, humanas, informática ou idiomas.",
+      "Não. Você pode começar usando um edital anterior, o índice de um livro ou simplesmente cadastrar suas disciplinas. Quando um novo edital sair, basta atualizar as informações e a ATLION reorganiza toda a preparação.",
   },
   {
-    pergunta: "Dá pra usar pelo celular?",
-    resposta: "Sim. A plataforma inteira funciona em qualquer tela — celular, tablet ou computador.",
+    pergunta: "E se eu ficar dias ou semanas sem estudar?",
+    resposta:
+      "Não é necessário reorganizar tudo manualmente. A ATLION recalcula automaticamente sua preparação considerando o tempo parado e prioriza o que realmente precisa ser retomado.",
+  },
+  {
+    pergunta: "Posso alterar a sessão que a ATLION criou?",
+    resposta:
+      "Pode. Você continua no controle. Sempre que fizer alterações, a plataforma recalcula automaticamente as próximas sessões para manter sua preparação equilibrada.",
+  },
+  {
+    pergunta: "Preciso entender métodos de estudo para usar a plataforma?",
+    resposta:
+      "Não. A metodologia já está incorporada ao sistema. Você apenas inicia a sessão e estuda. A ATLION toma as decisões por você.",
+  },
+  {
+    pergunta: "Quanto tempo leva para montar meu planejamento?",
+    resposta:
+      "Poucos minutos. Depois disso, cada nova sessão é gerada automaticamente conforme sua evolução, sem necessidade de reorganizar cronogramas ou planilhas.",
+  },
+  {
+    pergunta: "Posso usar no celular?",
+    resposta: "Sim. A plataforma funciona em computador, tablet e celular, permitindo continuar seus estudos de qualquer lugar.",
+  },
+  {
+    pergunta: "Meus dados são perdidos se eu trocar de dispositivo?",
+    resposta: "Não. Todo o seu progresso fica sincronizado na nuvem. Basta entrar na sua conta para continuar exatamente de onde parou.",
+  },
+  {
+    pergunta: "Qual é a maior diferença entre a ATLION e um planner de estudos?",
+    resposta:
+      "Um planner apenas organiza tarefas. A ATLION toma decisões continuamente. Ela analisa sua evolução, identifica o que precisa ser reforçado e recalcula automaticamente cada nova sessão para que você não precise decidir o próximo passo.",
   },
 ];
 
@@ -34,12 +63,12 @@ export function Faq() {
         <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#C8A15A]">FAQ</p>
       </ScrollReveal>
       <ScrollReveal delayMs={80}>
-        <h2 className="mt-5 text-3xl font-semibold tracking-tight text-[#F5F3EF] sm:text-4xl">Perguntas comuns.</h2>
+        <h2 className="mt-5 text-3xl font-semibold tracking-tight text-[#F5F3EF] sm:text-4xl">Ainda com dúvidas?</h2>
       </ScrollReveal>
 
       <div className="mt-14 divide-y divide-white/[0.07] border-t border-white/[0.07]">
         {PERGUNTAS.map((item, i) => (
-          <ScrollReveal key={item.pergunta} delayMs={i * 50}>
+          <ScrollReveal key={item.pergunta} delayMs={i * 30}>
             <details className="group py-6">
               <summary className="flex cursor-pointer list-none items-center justify-between text-left text-[#F5F3EF] marker:content-none">
                 <span className="text-base font-medium sm:text-lg">{item.pergunta}</span>
