@@ -2,7 +2,7 @@ import { ScrollReveal } from "./scroll-reveal";
 
 const FRASES = [
   "Decisão é a maior fonte de cansaço mental de quem estuda para concurso.",
-  "Por isso a ATLION decide primeiro — você só executa.",
+  "Por isso o Motor de Aprendizagem recalcula sua rota antes de você precisar pensar nela.",
   "Sem tela em branco. Sem “por onde eu começo hoje”.",
 ];
 
