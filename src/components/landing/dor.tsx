@@ -55,7 +55,7 @@ export function Dor() {
           className="relative -mt-2 rounded-2xl border border-white/[0.08] bg-[#111D2D] px-8 py-6 text-center shadow-[0_0_90px_-20px_rgba(200,161,90,0.22)]"
         >
           <p className="text-xs uppercase tracking-widest text-[#AAB4C3]/70">Próxima ação</p>
-          <p className="mt-2 text-xl font-semibold text-[#F5F3EF]">Direito Constitucional</p>
+          <p className="mt-2 text-xl font-semibold text-[#F5F3EF]">Direito Administrativo</p>
           <div className="mt-4 rounded-md bg-[#C8A15A] px-6 py-2 text-sm font-semibold text-[#08111D]">
             Começar sessão
           </div>
