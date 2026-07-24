@@ -122,34 +122,45 @@ export async function retomarEtapa(etapaId: string) {
   revalidatePath("/sessao");
 }
 
-export async function iniciarSessao() {
-  const { supabase, user } = await requireUser();
-
+// Garante que existe uma sessão em andamento pro usuário (cria uma nova se
+// não houver), sem redirecionar — usado tanto pelo botão "Estudar Agora"
+// quanto pelo fim do onboarding, que precisam de comportamentos diferentes
+// depois de garantir a sessão.
+export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId: string) {
   const { data: existente } = await supabase
     .from("sessoes")
     .select("id")
-    .eq("user_id", user.id)
+    .eq("user_id", userId)
     .eq("status", "em_andamento")
     .maybeSingle();
 
-  if (!existente) {
-    const disciplina = await escolherDisciplina(supabase, user.id);
-    if (!disciplina) redirect("/planejamento");
+  if (existente) return existente.id as string;
 
-    const { data: sessao } = await supabase
-      .from("sessoes")
-      .insert({ user_id: user.id, disciplina_id: disciplina.id })
-      .select("id")
-      .single();
+  const disciplina = await escolherDisciplina(supabase, userId);
+  if (!disciplina) return null;
 
-    if (sessao) {
-      const tipos = ETAPAS_POR_TIPO[disciplina.tipo] ?? ETAPAS_POR_TIPO.personalizada;
-      await supabase.from("sessao_etapas").insert(
-        tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
-      );
-      await iniciarProximaEtapa(supabase, sessao.id);
-    }
+  const { data: sessao } = await supabase
+    .from("sessoes")
+    .insert({ user_id: userId, disciplina_id: disciplina.id })
+    .select("id")
+    .single();
+
+  if (sessao) {
+    const tipos = ETAPAS_POR_TIPO[disciplina.tipo] ?? ETAPAS_POR_TIPO.personalizada;
+    await supabase.from("sessao_etapas").insert(
+      tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
+    );
+    await iniciarProximaEtapa(supabase, sessao.id);
   }
+
+  return sessao?.id ?? null;
+}
+
+export async function iniciarSessao() {
+  const { supabase, user } = await requireUser();
+
+  const sessaoId = await garantirSessaoEmAndamento(supabase, user.id);
+  if (!sessaoId) redirect("/planejamento");
 
   redirect("/sessao");
 }

@@ -168,7 +168,7 @@ export default async function PlanejamentoPage() {
     .returns<Disciplina[]>();
 
   return (
-    <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
+    <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Planejamento</h1>
         <Link href="/painel" className="text-sm text-foreground/60 underline underline-offset-4">
@@ -301,6 +301,6 @@ export default async function PlanejamentoPage() {
           </div>
         </form>
       </div>
-    </main>
+    </div>
   );
 }

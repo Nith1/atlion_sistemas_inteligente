@@ -12,33 +12,7 @@ import {
   retomarEtapa,
 } from "./actions";
 import { Cronometro, TempoTotalHoje } from "./cronometro";
-
-const ETAPA_LABELS: Record<string, string> = {
-  ativacao_cognitiva: "Ativação Cognitiva",
-  estudo: "Estudo",
-  descanso: "Descanso",
-  lei_seca: "Lei Seca",
-  jurisprudencia: "Jurisprudência",
-  exercicios: "Exercícios",
-  laboratorio: "Laboratório",
-  questoes: "Questões",
-};
-
-// Duração sugerida por etapa — método validado do Atlion, não é estimativa.
-const MINUTOS_SUGERIDOS: Record<string, number> = {
-  ativacao_cognitiva: 15, // método: 10 a 15 min
-  estudo: 50,
-  descanso: 10,
-  lei_seca: 20,
-  jurisprudencia: 20,
-  exercicios: 20,
-  laboratorio: 20,
-  questoes: 20,
-};
-
-const SUGERIDO_LABEL: Partial<Record<string, string>> = {
-  ativacao_cognitiva: "10–15 min",
-};
+import { ETAPA_LABELS, MINUTOS_SUGERIDOS, SUGERIDO_LABEL } from "@/lib/etapas";
 
 const CONSOLIDACAO_INSTRUCAO: Record<string, string> = {
   exercicios: "Resolva exercícios sobre esse assunto no seu material.",
@@ -449,7 +423,7 @@ export default async function SessaoPage() {
   }
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-16">
+    <div className="flex flex-1 items-center justify-center px-6 py-16">
       <div className="w-full max-w-md">
         <div className="mb-3 h-1 w-full rounded-full bg-foreground/10">
           <div
@@ -512,6 +486,6 @@ export default async function SessaoPage() {
 
         <div className="mt-6">{conteudo}</div>
       </div>
-    </main>
+    </div>
   );
 }

@@ -1,437 +1,395 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { concluirOnboarding, type DisciplinaInput } from "./actions";
+import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
+import { concluirOnboarding } from "./actions";
+import { Preparando } from "./preparando";
+import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
+import { inferirTipoDisciplina } from "@/lib/disciplinas";
 
-const DISCIPLINA_TIPOS: { value: string; label: string }[] = [
-  { value: "juridica", label: "Jurídica" },
-  { value: "exatas", label: "Exatas" },
-  { value: "humanas", label: "Humanas" },
-  { value: "informatica", label: "Informática" },
-  { value: "idiomas", label: "Idiomas" },
-  { value: "personalizada", label: "Personalizada" },
+const HORAS_OPCOES = [
+  { label: "1h", valor: 1 },
+  { label: "2h", valor: 2 },
+  { label: "3h", valor: 3 },
+  { label: "4h", valor: 4 },
+  { label: "5h+", valor: 5 },
 ];
 
-// Sugestões prontas por tipo, pra quem prefere escolher em vez de digitar.
-const DISCIPLINAS_SUGERIDAS: Record<string, string[]> = {
-  juridica: [
-    "Direito Constitucional",
-    "Direito Administrativo",
-    "Direito Penal",
-    "Direito Civil",
-    "Direito Processual Civil",
-    "Direito Processual Penal",
-    "Direito do Trabalho",
-    "Direito Tributário",
-    "Direito Previdenciário",
-    "Direito Ambiental",
-    "Direito Empresarial",
-  ],
-  exatas: ["Matemática", "Raciocínio Lógico", "Estatística", "Matemática Financeira", "Física"],
-  humanas: [
-    "Língua Portuguesa",
-    "Redação",
-    "Geografia",
-    "História",
-    "Atualidades",
-    "Direitos Humanos",
-    "Sociologia",
-    "Filosofia",
-  ],
-  informatica: [
-    "Informática Básica",
-    "Segurança da Informação",
-    "Redes de Computadores",
-    "Banco de Dados",
-    "Lógica de Programação",
-    "Governança de TI",
-  ],
-  idiomas: ["Inglês", "Espanhol", "Francês"],
-  personalizada: [],
-};
+const PLACEHOLDERS_DISCIPLINA = ["Ex: Português", "Ex: Direito Constitucional", "Ex: Direito Penal", "Ex: Informática"];
 
-const ATIVACAO_MODOS: { value: "questoes" | "anki" | "questoes_anki"; label: string; descricao: string }[] = [
-  { value: "questoes", label: "Questões", descricao: "Modo padrão da plataforma." },
-  { value: "anki", label: "Anki", descricao: "Só reforço via cartões de memorização." },
-  { value: "questoes_anki", label: "Questões + Anki", descricao: "As duas camadas de reforço juntas." },
+type AtivacaoModo = "questoes" | "anki" | "questoes_anki";
+
+const ATIVACAO_MODOS: { value: AtivacaoModo; label: string; descricao: string; Icone: React.FC<React.SVGProps<SVGSVGElement>> }[] = [
+  {
+    value: "questoes",
+    label: "Questões",
+    descricao: "Refaz questões dos assuntos já estudados.",
+    Icone: IconeQuestoes,
+  },
+  {
+    value: "anki",
+    label: "Anki",
+    descricao: "Revisa com cartões de memorização.",
+    Icone: IconeAnki,
+  },
+  {
+    value: "questoes_anki",
+    label: "Questões + Anki",
+    descricao: "As duas camadas de reforço juntas.",
+    Icone: IconeCombo,
+  },
 ];
 
 type FormState = {
   concurso: string;
   temEdital: boolean | null;
-  horasLiquidasDia: string;
   trabalha: boolean | null;
-  disciplinas: DisciplinaInput[];
+  horasLiquidasDia: number | null;
+  disciplinas: string[];
   cursoPreparatorio: string;
-  ativacaoModo: "questoes" | "anki" | "questoes_anki";
+  ativacaoModo: AtivacaoModo;
 };
 
 const estadoInicial: FormState = {
   concurso: "",
   temEdital: null,
-  horasLiquidasDia: "",
   trabalha: null,
-  disciplinas: [],
+  horasLiquidasDia: null,
+  disciplinas: [""],
   cursoPreparatorio: "",
   ativacaoModo: "questoes",
 };
 
-const TOTAL_ETAPAS = 7;
-
 export function OnboardingWizard() {
+  const router = useRouter();
   const [etapa, setEtapa] = useState(1);
+  const [direcao, setDirecao] = useState(1);
   const [form, setForm] = useState<FormState>(estadoInicial);
-  const [novaDisciplina, setNovaDisciplina] = useState("");
-  const [novoTipo, setNovoTipo] = useState(DISCIPLINA_TIPOS[0].value);
   const [erro, setErro] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
-  function avancar() {
+  function irPara(proxima: number) {
     setErro(null);
-    setEtapa((atual) => Math.min(atual + 1, TOTAL_ETAPAS));
+    setDirecao(proxima > etapa ? 1 : -1);
+    setEtapa(proxima);
   }
 
-  function voltar() {
+  function iniciarPreparacao() {
     setErro(null);
-    setEtapa((atual) => Math.max(atual - 1, 1));
-  }
+    setDirecao(1);
+    setEtapa(3);
 
-  function adicionarDisciplinaComNome(nome: string) {
-    const nomeLimpo = nome.trim();
-    if (!nomeLimpo) return;
-    setForm((atual) => ({
-      ...atual,
-      disciplinas: [...atual.disciplinas, { nome: nomeLimpo, tipo: novoTipo }],
-    }));
-  }
+    const inicio = Date.now();
+    const DURACAO_MINIMA_MS = 5600;
 
-  function adicionarDisciplina() {
-    adicionarDisciplinaComNome(novaDisciplina);
-    setNovaDisciplina("");
-  }
-
-  const sugeridasParaTipo = DISCIPLINAS_SUGERIDAS[novoTipo] ?? [];
-  const jaAdicionada = (nome: string) =>
-    form.disciplinas.some((d) => d.nome.toLowerCase() === nome.toLowerCase());
-  const sugestaoAutocomplete =
-    novaDisciplina.trim().length > 0
-      ? sugeridasParaTipo.find(
-          (s) =>
-            s.toLowerCase().startsWith(novaDisciplina.toLowerCase()) &&
-            s.toLowerCase() !== novaDisciplina.toLowerCase() &&
-            !jaAdicionada(s)
-        )
-      : undefined;
-  const complementoAutocomplete = sugestaoAutocomplete ? sugestaoAutocomplete.slice(novaDisciplina.length) : "";
-
-  function removerDisciplina(indice: number) {
-    setForm((atual) => ({
-      ...atual,
-      disciplinas: atual.disciplinas.filter((_, i) => i !== indice),
-    }));
-  }
-
-  function concluir() {
-    setErro(null);
     startTransition(async () => {
       const resultado = await concluirOnboarding({
         concurso: form.concurso,
         temEdital: form.temEdital ?? false,
-        horasLiquidasDia: form.horasLiquidasDia ? Number(form.horasLiquidasDia) : null,
+        horasLiquidasDia: form.horasLiquidasDia,
         trabalha: form.trabalha ?? false,
         cursoPreparatorio: form.cursoPreparatorio,
         ativacaoModo: form.ativacaoModo,
-        disciplinas: form.disciplinas,
+        disciplinas: form.disciplinas
+          .map((nome) => nome.trim())
+          .filter(Boolean)
+          .map((nome) => ({ nome, tipo: inferirTipoDisciplina(nome) })),
       });
+
       if (resultado?.error) {
         setErro(resultado.error);
+        irPara(2);
+        return;
       }
+
+      const decorrido = Date.now() - inicio;
+      const faltam = Math.max(0, DURACAO_MINIMA_MS - decorrido);
+      setTimeout(() => router.push("/painel"), faltam);
     });
   }
 
+  const podeContinuarEtapa1 =
+    form.concurso.trim().length > 0 &&
+    form.temEdital !== null &&
+    form.trabalha !== null &&
+    form.horasLiquidasDia !== null;
+
+  const podeContinuarEtapa2 = form.disciplinas.some((d) => d.trim().length > 0);
+
   return (
     <div className="w-full max-w-md">
-      <div className="mb-10 h-1 w-full rounded-full bg-foreground/10">
-        <div
-          className="h-1 rounded-full bg-gold transition-all"
-          style={{ width: `${(etapa / TOTAL_ETAPAS) * 100}%` }}
-        />
-      </div>
+      {etapa < 3 && (
+        <div className="mb-10 flex items-center justify-between">
+          <div className="flex gap-1.5">
+            {[1, 2, 3].map((n) => (
+              <span key={n} className={`h-1.5 w-1.5 rounded-full ${n <= etapa ? "bg-gold" : "bg-foreground/15"}`} />
+            ))}
+          </div>
+          <span className="text-xs text-foreground/40">Etapa {etapa} de 3</span>
+        </div>
+      )}
 
-      {etapa === 1 && (
-        <Step
-          titulo="Qual concurso você deseja prestar?"
-          onContinuar={avancar}
-          podeContinuar={form.concurso.trim().length > 0}
+      <AnimatePresence mode="wait" custom={direcao}>
+        <motion.div
+          key={etapa}
+          custom={direcao}
+          initial="entra"
+          animate="centro"
+          exit="sai"
+          variants={{
+            entra: (dir: number) => ({ opacity: 0, x: dir > 0 ? 32 : -32 }),
+            centro: { opacity: 1, x: 0 },
+            sai: (dir: number) => ({ opacity: 0, x: dir > 0 ? -32 : 32 }),
+          }}
+          transition={{ duration: 0.45, ease: "easeInOut" }}
         >
+          {etapa === 1 && (
+            <Etapa1 form={form} setForm={setForm} podeContinuar={podeContinuarEtapa1} onContinuar={() => irPara(2)} />
+          )}
+          {etapa === 2 && (
+            <Etapa2
+              form={form}
+              setForm={setForm}
+              podeContinuar={podeContinuarEtapa2}
+              erro={erro}
+              onVoltar={() => irPara(1)}
+              onContinuar={iniciarPreparacao}
+            />
+          )}
+          {etapa === 3 && <Preparando />}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function Etapa1({
+  form,
+  setForm,
+  podeContinuar,
+  onContinuar,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  podeContinuar: boolean;
+  onContinuar: () => void;
+}) {
+  const [mostrarSugestoes, setMostrarSugestoes] = useState(false);
+  const termo = form.concurso.trim().toLowerCase();
+  const sugestoes = termo.length > 0 ? CONCURSOS_SUGERIDOS.filter((c) => c.toLowerCase().includes(termo)).slice(0, 6) : [];
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-foreground">Sobre sua preparação</h1>
+
+      <div className="mt-6 space-y-6">
+        <div className="relative">
+          <label className="mb-2 block text-sm text-foreground/60">Qual concurso deseja prestar?</label>
           <input
             autoFocus
             type="text"
             value={form.concurso}
-            onChange={(e) => setForm({ ...form, concurso: e.target.value })}
-            placeholder="Ex: Auditor Fiscal, PRF, Escrevente TJ..."
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            onChange={(e) => {
+              setForm({ ...form, concurso: e.target.value });
+              setMostrarSugestoes(true);
+            }}
+            onFocus={() => setMostrarSugestoes(true)}
+            onBlur={() => setTimeout(() => setMostrarSugestoes(false), 120)}
+            placeholder="Ex: PRF, Receita Federal, TRT..."
+            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2.5 text-sm outline-none focus:border-gold"
           />
-        </Step>
-      )}
+          {mostrarSugestoes && sugestoes.length > 0 && (
+            <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-foreground/15 bg-background shadow-lg">
+              {sugestoes.map((s) => (
+                <li key={s}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      setForm({ ...form, concurso: s });
+                      setMostrarSugestoes(false);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-gold/10"
+                  >
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
 
-      {etapa === 2 && (
-        <Step
-          titulo="Já existe edital publicado?"
-          onContinuar={avancar}
-          onVoltar={voltar}
-          podeContinuar={form.temEdital !== null}
-        >
+        <div>
+          <label className="mb-2 block text-sm text-foreground/60">Já existe edital publicado?</label>
           <SimNao valor={form.temEdital} onEscolher={(v) => setForm({ ...form, temEdital: v })} />
-        </Step>
-      )}
+        </div>
 
-      {etapa === 3 && (
-        <Step
-          titulo="Quantas horas líquidas você tem por dia?"
-          onContinuar={avancar}
-          onVoltar={voltar}
-          podeContinuar={form.horasLiquidasDia.trim().length > 0}
-        >
-          <input
-            autoFocus
-            type="number"
-            min={0}
-            step={0.5}
-            value={form.horasLiquidasDia}
-            onChange={(e) => setForm({ ...form, horasLiquidasDia: e.target.value })}
-            placeholder="Ex: 3"
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-        </Step>
-      )}
-
-      {etapa === 4 && (
-        <Step
-          titulo="Você trabalha atualmente?"
-          onContinuar={avancar}
-          onVoltar={voltar}
-          podeContinuar={form.trabalha !== null}
-        >
+        <div>
+          <label className="mb-2 block text-sm text-foreground/60">Você trabalha atualmente?</label>
           <SimNao valor={form.trabalha} onEscolher={(v) => setForm({ ...form, trabalha: v })} />
-        </Step>
-      )}
+        </div>
 
-      {etapa === 5 && (
-        <Step
-          titulo="Quais disciplinas você pretende estudar?"
-          subtitulo="Só o nome por agora — depois, no Planejamento, você cola o edital ou o índice do livro e a gente organiza os assuntos de cada uma."
-          onContinuar={avancar}
-          onVoltar={voltar}
-          podeContinuar={form.disciplinas.length > 0}
-        >
-          <div className="space-y-3">
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <div className="relative flex-1">
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre px-3 text-sm"
-                >
-                  <span className="invisible">{novaDisciplina}</span>
-                  <span className="text-foreground/35">{complementoAutocomplete}</span>
-                </div>
+        <div>
+          <label className="mb-2 block text-sm text-foreground/60">Quantas horas líquidas você possui por dia?</label>
+          <div className="flex flex-wrap gap-2">
+            {HORAS_OPCOES.map((h) => (
+              <button
+                key={h.valor}
+                type="button"
+                onClick={() => setForm({ ...form, horasLiquidasDia: h.valor })}
+                className={`rounded-md border px-4 py-3 text-sm font-medium transition ${
+                  form.horasLiquidasDia === h.valor
+                    ? "border-gold bg-gold/10 text-foreground"
+                    : "border-foreground/20 text-foreground/70 hover:border-foreground/40"
+                }`}
+              >
+                {h.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={onContinuar}
+        disabled={!podeContinuar}
+        className="mt-8 w-full rounded-md bg-navy px-5 py-3 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90 disabled:opacity-40"
+      >
+        Continuar
+      </button>
+    </div>
+  );
+}
+
+function Etapa2({
+  form,
+  setForm,
+  podeContinuar,
+  erro,
+  onVoltar,
+  onContinuar,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  podeContinuar: boolean;
+  erro: string | null;
+  onVoltar: () => void;
+  onContinuar: () => void;
+}) {
+  function atualizarDisciplina(indice: number, valor: string) {
+    setForm((atual) => ({
+      ...atual,
+      disciplinas: atual.disciplinas.map((d, i) => (i === indice ? valor : d)),
+    }));
+  }
+
+  function adicionarCampoDisciplina() {
+    setForm((atual) => ({ ...atual, disciplinas: [...atual.disciplinas, ""] }));
+  }
+
+  function removerCampoDisciplina(indice: number) {
+    setForm((atual) => ({
+      ...atual,
+      disciplinas: atual.disciplinas.length > 1 ? atual.disciplinas.filter((_, i) => i !== indice) : atual.disciplinas,
+    }));
+  }
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-foreground">Seus estudos</h1>
+      <p className="mt-1 text-sm text-foreground/60">Conte para a ATLION quais materiais você utilizará.</p>
+
+      <div className="mt-6 space-y-6">
+        <div>
+          <label className="mb-2 block text-sm text-foreground/60">Disciplinas</label>
+          <div className="space-y-2">
+            {form.disciplinas.map((disciplina, indice) => (
+              <div key={indice} className="flex gap-2">
                 <input
                   type="text"
-                  value={novaDisciplina}
-                  onChange={(e) => setNovaDisciplina(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Tab" && sugestaoAutocomplete) {
-                      e.preventDefault();
-                      setNovaDisciplina(sugestaoAutocomplete);
-                      return;
-                    }
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      adicionarDisciplina();
-                    }
-                  }}
-                  placeholder="Nome da disciplina"
-                  className="relative w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                  value={disciplina}
+                  onChange={(e) => atualizarDisciplina(indice, e.target.value)}
+                  placeholder={PLACEHOLDERS_DISCIPLINA[indice % PLACEHOLDERS_DISCIPLINA.length]}
+                  className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
                 />
+                {form.disciplinas.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removerCampoDisciplina(indice)}
+                    aria-label="Remover disciplina"
+                    className="shrink-0 rounded-md px-3 text-foreground/40 hover:text-red-500"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
-              <div className="flex gap-2">
-                <select
-                  value={novoTipo}
-                  onChange={(e) => setNovoTipo(e.target.value)}
-                  className="flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-2 text-sm outline-none focus:border-gold sm:flex-none"
-                >
-                  {DISCIPLINA_TIPOS.map((tipo) => (
-                    <option key={tipo.value} value={tipo.value} className="bg-background text-foreground">
-                      {tipo.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={adicionarDisciplina}
-                  className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-                >
-                  Adicionar
-                </button>
-              </div>
-            </div>
-
-            {sugeridasParaTipo.length > 0 && (
-              <select
-                value=""
-                onChange={(e) => {
-                  if (e.target.value) adicionarDisciplinaComNome(e.target.value);
-                }}
-                className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm text-foreground/70 outline-none focus:border-gold"
-              >
-                <option value="" className="bg-background text-foreground">
-                  Ou escolha uma sugestão pra {DISCIPLINA_TIPOS.find((t) => t.value === novoTipo)?.label}...
-                </option>
-                {sugeridasParaTipo
-                  .filter((s) => !jaAdicionada(s))
-                  .map((s) => (
-                    <option key={s} value={s} className="bg-background text-foreground">
-                      {s}
-                    </option>
-                  ))}
-              </select>
-            )}
-
-            {form.disciplinas.length > 0 && (
-              <ul className="divide-y divide-foreground/10 rounded-md border border-foreground/10">
-                {form.disciplinas.map((disciplina, indice) => (
-                  <li key={indice} className="flex items-center justify-between px-3 py-2 text-sm">
-                    <span>
-                      {disciplina.nome}{" "}
-                      <span className="text-foreground/50">
-                        · {DISCIPLINA_TIPOS.find((t) => t.value === disciplina.tipo)?.label}
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removerDisciplina(indice)}
-                      className="text-foreground/50 hover:text-red-600"
-                      aria-label={`Remover ${disciplina.nome}`}
-                    >
-                      remover
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+            ))}
           </div>
-        </Step>
-      )}
+          <button type="button" onClick={adicionarCampoDisciplina} className="mt-2 text-sm text-gold hover:opacity-80">
+            + Adicionar disciplina
+          </button>
+        </div>
 
-      {etapa === 6 && (
-        <Step
-          titulo="Qual curso preparatório você utiliza?"
-          subtitulo="Opcional — pode deixar em branco."
-          onContinuar={avancar}
-          onVoltar={voltar}
-          podeContinuar
-        >
+        <div>
+          <label className="mb-2 block text-sm text-foreground/60">
+            Curso preparatório <span className="text-foreground/35">(opcional)</span>
+          </label>
           <input
-            autoFocus
             type="text"
             value={form.cursoPreparatorio}
             onChange={(e) => setForm({ ...form, cursoPreparatorio: e.target.value })}
-            placeholder="Ex: Gran Cursos, Estratégia..."
+            placeholder="Ex: Gran Cursos, Estratégia, CERS..."
             className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
-        </Step>
-      )}
+        </div>
 
-      {etapa === 7 && (
-        <Step
-          titulo="Como você quer fazer a Ativação Cognitiva?"
-          subtitulo="É o reforço dos assuntos já estudados, antes de aprender algo novo."
-          onContinuar={concluir}
-          onVoltar={voltar}
-          podeContinuar
-          textoContinuar={pending ? "Gerando seu planejamento..." : "Concluir"}
-          desabilitarContinuar={pending}
-        >
+        <div>
+          <label className="mb-2 block text-sm text-foreground/60">Ativação Cognitiva</label>
           <div className="space-y-2">
             {ATIVACAO_MODOS.map((modo) => (
               <button
                 type="button"
                 key={modo.value}
                 onClick={() => setForm({ ...form, ativacaoModo: modo.value })}
-                className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${
+                className={`flex w-full items-start gap-3 rounded-md border px-4 py-3 text-left transition ${
                   form.ativacaoModo === modo.value
-                    ? "border-gold bg-gold/10"
+                    ? "border-gold bg-gold/5 shadow-[0_1px_12px_-2px_rgba(201,162,39,0.25)]"
                     : "border-foreground/20 hover:border-foreground/40"
                 }`}
               >
-                <span className="font-medium">{modo.label}</span>
-                <span className="block text-foreground/60">{modo.descricao}</span>
+                <modo.Icone className="mt-0.5 h-5 w-5 shrink-0 text-foreground/60" />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">{modo.label}</span>
+                  <span className="block text-xs text-foreground/50">{modo.descricao}</span>
+                </span>
               </button>
             ))}
           </div>
-          {erro && <p className="mt-4 text-sm text-red-600">{erro}</p>}
-        </Step>
-      )}
-    </div>
-  );
-}
+        </div>
+      </div>
 
-function Step({
-  titulo,
-  subtitulo,
-  children,
-  onContinuar,
-  onVoltar,
-  podeContinuar,
-  textoContinuar = "Continuar",
-  desabilitarContinuar = false,
-}: {
-  titulo: string;
-  subtitulo?: string;
-  children: React.ReactNode;
-  onContinuar: () => void;
-  onVoltar?: () => void;
-  podeContinuar: boolean;
-  textoContinuar?: string;
-  desabilitarContinuar?: boolean;
-}) {
-  return (
-    <div>
-      <h1 className="text-xl font-semibold text-foreground">{titulo}</h1>
-      {subtitulo && <p className="mt-1 text-sm text-foreground/60">{subtitulo}</p>}
-      <div className="mt-6">{children}</div>
+      {erro && <p className="mt-4 text-sm text-red-600">{erro}</p>}
+
       <div className="mt-8 flex items-center justify-between">
-        {onVoltar ? (
-          <button
-            type="button"
-            onClick={onVoltar}
-            className="text-sm text-foreground/60 hover:text-foreground"
-          >
-            Voltar
-          </button>
-        ) : (
-          <span />
-        )}
+        <button type="button" onClick={onVoltar} className="text-sm text-foreground/60 hover:text-foreground">
+          Voltar
+        </button>
         <button
           type="button"
           onClick={onContinuar}
-          disabled={!podeContinuar || desabilitarContinuar}
-          className="rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90 disabled:opacity-40"
+          disabled={!podeContinuar}
+          className="rounded-md bg-navy px-6 py-3 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90 disabled:opacity-40"
         >
-          {textoContinuar}
+          Continuar
         </button>
       </div>
     </div>
   );
 }
 
-function SimNao({
-  valor,
-  onEscolher,
-}: {
-  valor: boolean | null;
-  onEscolher: (valor: boolean) => void;
-}) {
+function SimNao({ valor, onEscolher }: { valor: boolean | null; onEscolher: (valor: boolean) => void }) {
   return (
     <div className="flex gap-3">
       {[
@@ -443,14 +401,40 @@ function SimNao({
           key={opcao.label}
           onClick={() => onEscolher(opcao.value)}
           className={`flex-1 rounded-md border px-4 py-3 text-sm font-medium transition ${
-            valor === opcao.value
-              ? "border-gold bg-gold/10"
-              : "border-foreground/20 hover:border-foreground/40"
+            valor === opcao.value ? "border-gold bg-gold/10" : "border-foreground/20 hover:border-foreground/40"
           }`}
         >
           {opcao.label}
         </button>
       ))}
     </div>
+  );
+}
+
+function IconeQuestoes(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M8 11l2.5 2.5L16 8" />
+    </svg>
+  );
+}
+
+function IconeAnki(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="5" y="7" width="14" height="10" rx="2" />
+      <path d="M8 4h11a2 2 0 0 1 2 2v9" />
+    </svg>
+  );
+}
+
+function IconeCombo(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3l8 4-8 4-8-4 8-4Z" />
+      <path d="M4 12l8 4 8-4" />
+      <path d="M4 17l8 4 8-4" />
+    </svg>
   );
 }

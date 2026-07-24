@@ -158,7 +158,7 @@ export default async function EstatisticasPage({
       });
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">
       <Link href="/painel" className="text-sm text-foreground/50 hover:text-foreground">
         ← Voltar
       </Link>
@@ -231,6 +231,6 @@ export default async function EstatisticasPage({
           </ul>
         </div>
       )}
-    </main>
+    </div>
   );
 }

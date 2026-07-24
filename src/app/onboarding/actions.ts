@@ -1,7 +1,7 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { garantirSessaoEmAndamento } from "../(app)/sessao/actions";
 
 export type DisciplinaInput = { nome: string; tipo: string };
 
@@ -21,7 +21,7 @@ export async function concluirOnboarding(payload: OnboardingPayload) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) redirect("/login");
+  if (!user) return { error: "Sessão expirada. Faça login novamente." };
 
   const { error: profileError } = await supabase
     .from("profiles")
@@ -55,5 +55,8 @@ export async function concluirOnboarding(payload: OnboardingPayload) {
     }
   }
 
-  redirect("/painel");
+  // já deixa a primeira sessão pronta — é isso que o primeiro Dashboard mostra
+  await garantirSessaoEmAndamento(supabase, user.id);
+
+  return { success: true };
 }
