@@ -31,3 +31,16 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
 }
+
+/* Usado pelo simulador da landing: dá um "pulso" sutil no card toda vez
+   que o cenário muda, reforçando a sensação de recálculo ao vivo. */
+@keyframes simulatorSwap {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

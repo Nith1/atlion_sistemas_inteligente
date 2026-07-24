@@ -5,6 +5,7 @@ import { ProblemaInvisivel } from "@/components/landing/problema-invisivel";
 import { MotorAprendizagem } from "@/components/landing/motor-aprendizagem";
 import { ComoAtlionPensa } from "@/components/landing/como-atlion-pensa";
 import { AtivacaoCognitiva } from "@/components/landing/ativacao-cognitiva";
+import { SecaoSimulador } from "@/components/landing/secao-simulador";
 import { ComoFunciona } from "@/components/landing/como-funciona";
 import { Experiencia } from "@/components/landing/experiencia";
 import { Metodologia } from "@/components/landing/metodologia";
@@ -25,6 +26,7 @@ export default function Home() {
         <MotorAprendizagem />
         <ComoAtlionPensa />
         <AtivacaoCognitiva />
+        <SecaoSimulador />
         <ComoFunciona />
         <Experiencia />
         <Metodologia />
