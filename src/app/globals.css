@@ -44,3 +44,15 @@ body {
     transform: translateY(0);
   }
 }
+
+/* Pontinhos de "recalculando..." no card ao vivo do Hero. */
+@keyframes dotPulse {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+  }
+  40% {
+    opacity: 1;
+  }
+}
