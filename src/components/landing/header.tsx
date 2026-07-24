@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
   { href: "#como-funciona", label: "Como Funciona" },
@@ -13,6 +14,7 @@ const NAV_LINKS = [
 
 export function LandingHeader() {
   const [comFundo, setComFundo] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     function aoRolar() {
@@ -23,6 +25,13 @@ export function LandingHeader() {
     return () => window.removeEventListener("scroll", aoRolar);
   }, []);
 
+  function handleLogoClick(e: React.MouseEvent) {
+    if (pathname === "/") {
+      e.preventDefault();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   return (
     <header
       className={`fixed inset-x-0 top-0 z-50 transition-colors duration-300 ${
@@ -32,7 +41,7 @@ export function LandingHeader() {
       }`}
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" onClick={handleLogoClick} className="flex items-center gap-2">
           <Image src="/logo-mark.png" alt="" width={20} height={20} />
           <span className="text-xs font-semibold tracking-[0.3em] text-[#F5F3EF]">ATLION</span>
         </Link>
