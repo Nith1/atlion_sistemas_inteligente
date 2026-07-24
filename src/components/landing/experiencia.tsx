@@ -34,7 +34,7 @@ const TELAS = [
 
 export function Experiencia() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-28 sm:py-36">
+    <section className="mx-auto max-w-6xl px-6 py-28 sm:py-36">
       <ScrollReveal>
         <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-[#C8A15A]">
           A experiência
@@ -46,20 +46,20 @@ export function Experiencia() {
         </h2>
       </ScrollReveal>
 
-      <div className="mt-20 space-y-20">
+      <div className="mt-20 space-y-24">
         {TELAS.map((tela, i) => (
           <ScrollReveal key={tela.titulo} delayMs={i * 60}>
-            <p className="text-sm font-medium text-[#AAB4C3]">
+            <p className="text-base font-medium text-[#AAB4C3]">
               <span className="text-[#F5F3EF]">{tela.titulo}</span> — {tela.descricao}
             </p>
-            <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.06] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.6)]">
+            <div className="mt-5 overflow-hidden rounded-2xl border border-white/6 shadow-[0_30px_80px_-30px_rgba(0,0,0,0.6)]">
               <Image
                 src={tela.src}
                 alt={`Tela de ${tela.titulo} da ATLION`}
                 width={tela.largura}
                 height={tela.altura}
                 className="h-auto w-full"
-                sizes="(max-width: 768px) 100vw, 1024px"
+                sizes="(max-width: 768px) 100vw, 1152px"
               />
             </div>
           </ScrollReveal>

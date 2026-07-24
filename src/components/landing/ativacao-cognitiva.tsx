@@ -1,11 +1,11 @@
 import { ScrollReveal } from "./scroll-reveal";
 
 const FLUXO = [
-  "Você estudou Controle de Constitucionalidade.",
-  "Alguns dias se passam.",
-  "O motor percebe a perda natural de retenção.",
-  "Você erra duas questões relacionadas.",
-  "A ATLION recalcula automaticamente.",
+  "Você estudou um assunto.",
+  "Passaram alguns dias.",
+  "O sistema percebe que você está começando a esquecer esse conteúdo.",
+  "Você errou algumas questões.",
+  "O motor detecta isso.",
   "Sua próxima sessão começa com Ativação Cognitiva.",
   "Depois, segue pro conteúdo novo.",
 ];

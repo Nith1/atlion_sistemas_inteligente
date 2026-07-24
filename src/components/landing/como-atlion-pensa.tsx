@@ -1,23 +1,24 @@
 import { ScrollReveal } from "./scroll-reveal";
 
 const ANALISES = [
-  "Analisando desempenho...",
-  "Analisando revisões...",
-  "Analisando erros...",
-  "Calculando retenção...",
-  "Montando próxima sessão...",
+  "Motor analisa desempenho...",
+  "Analisa erros...",
+  "Analisa revisões...",
+  "Detecta o que você já começou a esquecer...",
+  "Calcula prioridades...",
+  "Reorganiza a preparação...",
 ];
 
 const PIPELINE = ["Ativação Cognitiva", "Estudo", "Consolidação", "Questões"];
 
-export function SessaoConstruida() {
+export function ComoAtlionPensa() {
   const atrasoBase = 250;
   const passo = 220;
 
   return (
     <section className="mx-auto max-w-3xl px-6 py-28 sm:py-36">
       <ScrollReveal>
-        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#C8A15A]">Ao vivo</p>
+        <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#C8A15A]">Como a ATLION pensa</p>
       </ScrollReveal>
       <ScrollReveal delayMs={80}>
         <h2 className="mt-5 max-w-lg text-3xl font-semibold tracking-tight text-[#F5F3EF] sm:text-4xl md:text-5xl">
@@ -25,8 +26,8 @@ export function SessaoConstruida() {
         </h2>
       </ScrollReveal>
 
-      <div className="mt-14 rounded-2xl border border-white/[0.06] bg-[#111D2D] p-8 shadow-[0_0_90px_-25px_rgba(200,161,90,0.2)] sm:p-10">
-        <p className="text-xs font-semibold uppercase tracking-widest text-[#C8A15A]">Motor de Aprendizagem</p>
+      <div className="mt-14 rounded-2xl border border-white/6 bg-[#111D2D] p-8 shadow-[0_0_90px_-25px_rgba(200,161,90,0.2)] sm:p-10">
+        <p className="text-xs font-semibold uppercase tracking-widest text-[#C8A15A]">Sessão concluída</p>
 
         <div className="mt-6 space-y-3">
           {ANALISES.map((linha, i) => (
@@ -40,7 +41,9 @@ export function SessaoConstruida() {
             className="flex items-center gap-3"
           >
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A15A]" />
-            <span className="text-base font-semibold text-[#F5F3EF]">Sessão pronta.</span>
+            <span className="text-base font-semibold text-[#F5F3EF]">
+              Monta automaticamente a próxima sessão.
+            </span>
           </ScrollReveal>
         </div>
 
