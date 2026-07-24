@@ -82,6 +82,26 @@ export default async function DashboardPage() {
     (errosData ?? []).map((erro) => `${erro.sessao_id}:${erro.assunto_id ?? "sem-assunto"}`)
   );
 
+  // mesma ordem que o Motor usa pra escolher a próxima disciplina (escolherDisciplina,
+  // em sessao/actions.ts): quem nunca foi estudada vem primeiro, depois da mais
+  // antiga pra mais recente — é literalmente o ciclo de rotação entre as matérias.
+  const ultimaConclusaoPorDisciplina = new Map<string, string>();
+  for (const s of [...sessoes]
+    .filter((s) => s.status === "concluida" && s.concluida_em)
+    .sort((a, b) => new Date(b.concluida_em as string).getTime() - new Date(a.concluida_em as string).getTime())) {
+    if (!ultimaConclusaoPorDisciplina.has(s.disciplina_id)) {
+      ultimaConclusaoPorDisciplina.set(s.disciplina_id, s.concluida_em as string);
+    }
+  }
+  const cicloDisciplinas = [...disciplinas].sort((a, b) => {
+    const dataA = ultimaConclusaoPorDisciplina.get(a.id);
+    const dataB = ultimaConclusaoPorDisciplina.get(b.id);
+    if (!dataA && !dataB) return 0;
+    if (!dataA) return -1;
+    if (!dataB) return 1;
+    return new Date(dataA).getTime() - new Date(dataB).getTime();
+  });
+
   const disciplinasVisao = disciplinas.slice(0, 5).map((disciplina) => {
     const assuntosDisciplina = assuntos.filter((a) => a.disciplina_id === disciplina.id);
     const assuntosEstudados = assuntosDisciplina.filter((a) => a.ja_estudado).length;
@@ -149,6 +169,35 @@ export default async function DashboardPage() {
         )}
       </div>
 
+      {cicloDisciplinas.length > 0 && (
+        <div className="mt-10">
+          <h2 className="text-sm font-medium text-foreground/70">Ciclo de estudos</h2>
+          <p className="mt-1 text-xs text-foreground/50">
+            A ordem que a ATLION vai seguir, começando pela que está há mais tempo parada.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {cicloDisciplinas.map((disciplina, i) => (
+              <div key={disciplina.id} className="flex items-center gap-2">
+                <span
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium ${
+                    i === 0 ? "border-gold bg-gold/10 text-foreground" : "border-foreground/15 text-foreground/60"
+                  }`}
+                >
+                  {disciplina.nome}
+                </span>
+                {i < cicloDisciplinas.length - 1 && <span className="text-foreground/25">→</span>}
+              </div>
+            ))}
+            {cicloDisciplinas.length > 1 && (
+              <span className="ml-1 flex items-center gap-1 text-xs text-foreground/40">
+                <IconeLoop className="h-3.5 w-3.5" />
+                recomeça
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
       {disciplinasVisao.length > 0 && (
         <div className="mt-10">
           <div className="flex items-center justify-between">
@@ -194,5 +243,14 @@ export default async function DashboardPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+function IconeLoop(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 12a8 8 0 0 1 14-5.3M20 12a8 8 0 0 1-14 5.3" />
+      <path d="M18 3v4h-4M6 21v-4h4" />
+    </svg>
   );
 }

@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { segundosDesdeComLimite } from "@/lib/tempo";
 
 function formatarTempo(segundos: number): string {
   const minutos = Math.floor(segundos / 60);
   const resto = segundos % 60;
   return `${String(minutos).padStart(2, "0")}:${String(resto).padStart(2, "0")}`;
-}
-
-function segundosDesde(iso: string): number {
-  return Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
 }
 
 // Cronômetro da etapa atual — soma o que já foi acumulado (antes de uma
@@ -27,7 +24,7 @@ export function Cronometro({
   sugeridoLabel?: string;
 }) {
   const [segundos, setSegundos] = useState(
-    () => tempoAcumuladoSegundos + (iniciadaEm ? segundosDesde(iniciadaEm) : 0)
+    () => tempoAcumuladoSegundos + (iniciadaEm ? segundosDesdeComLimite(iniciadaEm) : 0)
   );
 
   useEffect(() => {
@@ -35,9 +32,9 @@ export function Cronometro({
       setSegundos(tempoAcumuladoSegundos);
       return;
     }
-    setSegundos(tempoAcumuladoSegundos + segundosDesde(iniciadaEm));
+    setSegundos(tempoAcumuladoSegundos + segundosDesdeComLimite(iniciadaEm));
     const id = setInterval(() => {
-      setSegundos(tempoAcumuladoSegundos + segundosDesde(iniciadaEm));
+      setSegundos(tempoAcumuladoSegundos + segundosDesdeComLimite(iniciadaEm));
     }, 1000);
     return () => clearInterval(id);
   }, [iniciadaEm, tempoAcumuladoSegundos]);
@@ -69,7 +66,7 @@ export function TempoTotalHoje({
   iniciadaEmAtual: string | null;
 }) {
   const [segundosAtual, setSegundosAtual] = useState(() =>
-    iniciadaEmAtual ? segundosDesde(iniciadaEmAtual) : 0
+    iniciadaEmAtual ? segundosDesdeComLimite(iniciadaEmAtual) : 0
   );
 
   useEffect(() => {
@@ -77,8 +74,8 @@ export function TempoTotalHoje({
       setSegundosAtual(0);
       return;
     }
-    setSegundosAtual(segundosDesde(iniciadaEmAtual));
-    const id = setInterval(() => setSegundosAtual(segundosDesde(iniciadaEmAtual)), 1000);
+    setSegundosAtual(segundosDesdeComLimite(iniciadaEmAtual));
+    const id = setInterval(() => setSegundosAtual(segundosDesdeComLimite(iniciadaEmAtual)), 1000);
     return () => clearInterval(id);
   }, [iniciadaEmAtual]);
 

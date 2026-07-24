@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -15,9 +15,24 @@ const NAV_ITEMS = [
   { href: "/configuracoes", label: "Configurações", Icone: IconeConfig },
 ];
 
+const CHAVE_COLAPSO = "atlion-sidebar-colapsada";
+
 export function Sidebar() {
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
+  const [colapsada, setColapsada] = useState(false);
+
+  useEffect(() => {
+    if (window.localStorage.getItem(CHAVE_COLAPSO) === "1") setColapsada(true);
+  }, []);
+
+  function alternarColapso() {
+    setColapsada((atual) => {
+      const novo = !atual;
+      window.localStorage.setItem(CHAVE_COLAPSO, novo ? "1" : "0");
+      return novo;
+    });
+  }
 
   return (
     <>
@@ -61,19 +76,54 @@ export function Sidebar() {
       </AnimatePresence>
 
       {/* sidebar desktop */}
-      <aside className="hidden w-56 shrink-0 flex-col border-r border-foreground/10 px-4 py-6 md:flex">
-        <NavConteudo pathname={pathname} />
-      </aside>
+      {colapsada ? (
+        <aside className="hidden w-10 shrink-0 flex-col items-center border-r border-foreground/10 py-6 md:flex">
+          <button
+            type="button"
+            onClick={alternarColapso}
+            aria-label="Mostrar menu"
+            title="Mostrar menu"
+            className="rounded-md p-1.5 text-foreground/30 transition hover:text-foreground"
+          >
+            <IconeChevron className="h-4 w-4 rotate-180" />
+          </button>
+        </aside>
+      ) : (
+        <aside className="hidden w-56 shrink-0 flex-col border-r border-foreground/10 px-4 py-6 md:flex">
+          <NavConteudo pathname={pathname} onColapsar={alternarColapso} />
+        </aside>
+      )}
     </>
   );
 }
 
-function NavConteudo({ pathname, onNavegar }: { pathname: string; onNavegar?: () => void }) {
+function NavConteudo({
+  pathname,
+  onNavegar,
+  onColapsar,
+}: {
+  pathname: string;
+  onNavegar?: () => void;
+  onColapsar?: () => void;
+}) {
   return (
     <div className="flex h-full flex-col">
-      <Link href="/painel" onClick={onNavegar} className="text-sm font-semibold tracking-[0.2em] text-foreground">
-        ATLION
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/painel" onClick={onNavegar} className="text-sm font-semibold tracking-[0.2em] text-foreground">
+          ATLION
+        </Link>
+        {onColapsar && (
+          <button
+            type="button"
+            onClick={onColapsar}
+            aria-label="Esconder menu"
+            title="Esconder menu"
+            className="rounded-md p-1 text-foreground/30 transition hover:text-foreground"
+          >
+            <IconeChevron className="h-4 w-4" />
+          </button>
+        )}
+      </div>
 
       <form action={iniciarSessao} className="mt-6">
         <button
@@ -110,6 +160,14 @@ function NavConteudo({ pathname, onNavegar }: { pathname: string; onNavegar?: ()
         </button>
       </form>
     </div>
+  );
+}
+
+function IconeChevron(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M15 6l-6 6 6 6" />
+    </svg>
   );
 }
 

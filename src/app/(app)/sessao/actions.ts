@@ -3,19 +3,22 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { segundosDesdeComLimite } from "@/lib/tempo";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
 // Ordem das etapas de cada tipo de disciplina, conforme o vision.md:
 // toda sessão começa com Ativação Cognitiva e Estudo, e termina com Questões;
 // o meio (consolidação) muda de acordo com a natureza da disciplina.
+// "exercícios" foi removido por ser redundante com "questões" — as duas
+// etapas serviam pro mesmo propósito (praticar com questões do assunto).
 const ETAPAS_POR_TIPO: Record<string, string[]> = {
   juridica: ["ativacao_cognitiva", "estudo", "descanso", "lei_seca", "jurisprudencia", "questoes"],
-  exatas: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
+  exatas: ["ativacao_cognitiva", "estudo", "descanso", "questoes"],
   informatica: ["ativacao_cognitiva", "estudo", "descanso", "laboratorio", "questoes"],
-  humanas: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
-  idiomas: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
-  personalizada: ["ativacao_cognitiva", "estudo", "descanso", "exercicios", "questoes"],
+  humanas: ["ativacao_cognitiva", "estudo", "descanso", "questoes"],
+  idiomas: ["ativacao_cognitiva", "estudo", "descanso", "questoes"],
+  personalizada: ["ativacao_cognitiva", "estudo", "descanso", "questoes"],
 };
 
 async function requireUser() {
@@ -96,7 +99,7 @@ export async function pausarEtapa(etapaId: string) {
     .single();
 
   if (etapa?.iniciada_em) {
-    const decorrido = Math.max(0, Math.round((Date.now() - new Date(etapa.iniciada_em).getTime()) / 1000));
+    const decorrido = segundosDesdeComLimite(etapa.iniciada_em);
     await supabase
       .from("sessao_etapas")
       .update({
@@ -179,9 +182,7 @@ async function avancarEtapa(
     .eq("id", etapaId)
     .single();
 
-  const decorridoAgora = etapa?.iniciada_em
-    ? Math.max(0, Math.round((Date.now() - new Date(etapa.iniciada_em).getTime()) / 1000))
-    : 0;
+  const decorridoAgora = etapa?.iniciada_em ? segundosDesdeComLimite(etapa.iniciada_em) : 0;
   const tempoGastoSegundos = (etapa?.tempo_acumulado_segundos ?? 0) + decorridoAgora;
 
   await supabase

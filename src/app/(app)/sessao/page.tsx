@@ -13,6 +13,7 @@ import {
 } from "./actions";
 import { Cronometro, TempoTotalHoje } from "./cronometro";
 import { ETAPA_LABELS, MINUTOS_SUGERIDOS, SUGERIDO_LABEL } from "@/lib/etapas";
+import { LIMITE_CRONOMETRO_SEGUNDOS } from "@/lib/tempo";
 
 const CONSOLIDACAO_INSTRUCAO: Record<string, string> = {
   exercicios: "Resolva exercícios sobre esse assunto no seu material.",
@@ -70,6 +71,10 @@ export default async function SessaoPage() {
 
   if (!disciplina || !etapaAtual) redirect("/painel");
 
+  // defensivo, igual ao tempoBaseHojeSegundos: uma etapa antiga que ficou
+  // rodando por horas antes do teto de segurança não deve inflar a exibição.
+  const acumuladoEtapaAtual = Math.min(etapaAtual.tempo_acumulado_segundos, LIMITE_CRONOMETRO_SEGUNDOS);
+
   const etapaIndex = etapas.findIndex((e) => e.id === etapaAtual.id);
 
   const { data: profile } = await supabase
@@ -89,8 +94,10 @@ export default async function SessaoPage() {
     .eq("sessoes.user_id", user.id)
     .gte("concluida_em", inicioHoje.toISOString());
 
+  // o Math.min é defensivo: protege contra etapas antigas que ficaram com
+  // o cronômetro rodando por horas antes do teto de segurança existir.
   const tempoBaseHojeSegundos = (etapasHoje ?? []).reduce(
-    (soma, e) => soma + (e.tempo_gasto_segundos ?? 0),
+    (soma, e) => soma + Math.min(e.tempo_gasto_segundos ?? 0, LIMITE_CRONOMETRO_SEGUNDOS),
     0
   );
 
@@ -433,7 +440,7 @@ export default async function SessaoPage() {
         </div>
         <TempoTotalHoje
           baseSegundos={tempoBaseHojeSegundos}
-          etapaAtualAcumulado={etapaAtual.tempo_acumulado_segundos}
+          etapaAtualAcumulado={acumuladoEtapaAtual}
           iniciadaEmAtual={etapaAtual.iniciada_em}
         />
 
@@ -448,7 +455,7 @@ export default async function SessaoPage() {
           </div>
           <div className="flex items-center gap-3">
             <Cronometro
-              tempoAcumuladoSegundos={etapaAtual.tempo_acumulado_segundos}
+              tempoAcumuladoSegundos={acumuladoEtapaAtual}
               iniciadaEm={etapaAtual.iniciada_em}
               sugeridoMinutos={MINUTOS_SUGERIDOS[etapaAtual.tipo]}
               sugeridoLabel={SUGERIDO_LABEL[etapaAtual.tipo]}
