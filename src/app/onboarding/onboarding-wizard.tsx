@@ -12,6 +12,44 @@ const DISCIPLINA_TIPOS: { value: string; label: string }[] = [
   { value: "personalizada", label: "Personalizada" },
 ];
 
+// Sugestões prontas por tipo, pra quem prefere escolher em vez de digitar.
+const DISCIPLINAS_SUGERIDAS: Record<string, string[]> = {
+  juridica: [
+    "Direito Constitucional",
+    "Direito Administrativo",
+    "Direito Penal",
+    "Direito Civil",
+    "Direito Processual Civil",
+    "Direito Processual Penal",
+    "Direito do Trabalho",
+    "Direito Tributário",
+    "Direito Previdenciário",
+    "Direito Ambiental",
+    "Direito Empresarial",
+  ],
+  exatas: ["Matemática", "Raciocínio Lógico", "Estatística", "Matemática Financeira", "Física"],
+  humanas: [
+    "Língua Portuguesa",
+    "Redação",
+    "Geografia",
+    "História",
+    "Atualidades",
+    "Direitos Humanos",
+    "Sociologia",
+    "Filosofia",
+  ],
+  informatica: [
+    "Informática Básica",
+    "Segurança da Informação",
+    "Redes de Computadores",
+    "Banco de Dados",
+    "Lógica de Programação",
+    "Governança de TI",
+  ],
+  idiomas: ["Inglês", "Espanhol", "Francês"],
+  personalizada: [],
+};
+
 const ATIVACAO_MODOS: { value: "questoes" | "anki" | "questoes_anki"; label: string; descricao: string }[] = [
   { value: "questoes", label: "Questões", descricao: "Modo padrão da plataforma." },
   { value: "anki", label: "Anki", descricao: "Só reforço via cartões de memorização." },
@@ -58,15 +96,33 @@ export function OnboardingWizard() {
     setEtapa((atual) => Math.max(atual - 1, 1));
   }
 
-  function adicionarDisciplina() {
-    const nome = novaDisciplina.trim();
-    if (!nome) return;
+  function adicionarDisciplinaComNome(nome: string) {
+    const nomeLimpo = nome.trim();
+    if (!nomeLimpo) return;
     setForm((atual) => ({
       ...atual,
-      disciplinas: [...atual.disciplinas, { nome, tipo: novoTipo }],
+      disciplinas: [...atual.disciplinas, { nome: nomeLimpo, tipo: novoTipo }],
     }));
+  }
+
+  function adicionarDisciplina() {
+    adicionarDisciplinaComNome(novaDisciplina);
     setNovaDisciplina("");
   }
+
+  const sugeridasParaTipo = DISCIPLINAS_SUGERIDAS[novoTipo] ?? [];
+  const jaAdicionada = (nome: string) =>
+    form.disciplinas.some((d) => d.nome.toLowerCase() === nome.toLowerCase());
+  const sugestaoAutocomplete =
+    novaDisciplina.trim().length > 0
+      ? sugeridasParaTipo.find(
+          (s) =>
+            s.toLowerCase().startsWith(novaDisciplina.toLowerCase()) &&
+            s.toLowerCase() !== novaDisciplina.toLowerCase() &&
+            !jaAdicionada(s)
+        )
+      : undefined;
+  const complementoAutocomplete = sugestaoAutocomplete ? sugestaoAutocomplete.slice(novaDisciplina.length) : "";
 
   function removerDisciplina(indice: number) {
     setForm((atual) => ({
@@ -171,19 +227,33 @@ export function OnboardingWizard() {
         >
           <div className="space-y-3">
             <div className="flex flex-col gap-2 sm:flex-row">
-              <input
-                type="text"
-                value={novaDisciplina}
-                onChange={(e) => setNovaDisciplina(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    adicionarDisciplina();
-                  }
-                }}
-                placeholder="Nome da disciplina"
-                className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-              />
+              <div className="relative flex-1">
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 flex items-center overflow-hidden whitespace-pre px-3 text-sm"
+                >
+                  <span className="invisible">{novaDisciplina}</span>
+                  <span className="text-foreground/35">{complementoAutocomplete}</span>
+                </div>
+                <input
+                  type="text"
+                  value={novaDisciplina}
+                  onChange={(e) => setNovaDisciplina(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Tab" && sugestaoAutocomplete) {
+                      e.preventDefault();
+                      setNovaDisciplina(sugestaoAutocomplete);
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      adicionarDisciplina();
+                    }
+                  }}
+                  placeholder="Nome da disciplina"
+                  className="relative w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                />
+              </div>
               <div className="flex gap-2">
                 <select
                   value={novoTipo}
@@ -205,6 +275,27 @@ export function OnboardingWizard() {
                 </button>
               </div>
             </div>
+
+            {sugeridasParaTipo.length > 0 && (
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) adicionarDisciplinaComNome(e.target.value);
+                }}
+                className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm text-foreground/70 outline-none focus:border-gold"
+              >
+                <option value="" className="bg-background text-foreground">
+                  Ou escolha uma sugestão pra {DISCIPLINA_TIPOS.find((t) => t.value === novoTipo)?.label}...
+                </option>
+                {sugeridasParaTipo
+                  .filter((s) => !jaAdicionada(s))
+                  .map((s) => (
+                    <option key={s} value={s} className="bg-background text-foreground">
+                      {s}
+                    </option>
+                  ))}
+              </select>
+            )}
 
             {form.disciplinas.length > 0 && (
               <ul className="divide-y divide-foreground/10 rounded-md border border-foreground/10">
