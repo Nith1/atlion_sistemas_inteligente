@@ -9,6 +9,19 @@ function formatarTempo(segundos: number): string {
   return `${String(minutos).padStart(2, "0")}:${String(resto).padStart(2, "0")}`;
 }
 
+// Faz o componente re-renderizar a cada segundo enquanto `ativo`, sem guardar
+// o valor do tempo em si — o tempo é sempre recalculado no render a partir de
+// `iniciadaEm`, nunca fica um valor "congelado" em estado esperando ser
+// sincronizado.
+function useTique(ativo: boolean) {
+  const [, forcarRender] = useState(0);
+  useEffect(() => {
+    if (!ativo) return;
+    const id = setInterval(() => forcarRender((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [ativo]);
+}
+
 // Cronômetro da etapa atual — soma o que já foi acumulado (antes de uma
 // eventual pausa) com o tempo ao vivo desde que voltou a contar. Se
 // `iniciadaEm` for null, a etapa está pausada e o tempo fica parado.
@@ -23,22 +36,9 @@ export function Cronometro({
   sugeridoMinutos?: number;
   sugeridoLabel?: string;
 }) {
-  const [segundos, setSegundos] = useState(
-    () => tempoAcumuladoSegundos + (iniciadaEm ? segundosDesdeComLimite(iniciadaEm) : 0)
-  );
+  useTique(!!iniciadaEm);
 
-  useEffect(() => {
-    if (!iniciadaEm) {
-      setSegundos(tempoAcumuladoSegundos);
-      return;
-    }
-    setSegundos(tempoAcumuladoSegundos + segundosDesdeComLimite(iniciadaEm));
-    const id = setInterval(() => {
-      setSegundos(tempoAcumuladoSegundos + segundosDesdeComLimite(iniciadaEm));
-    }, 1000);
-    return () => clearInterval(id);
-  }, [iniciadaEm, tempoAcumuladoSegundos]);
-
+  const segundos = tempoAcumuladoSegundos + (iniciadaEm ? segundosDesdeComLimite(iniciadaEm) : 0);
   const passouSugerido = sugeridoMinutos !== undefined && segundos >= sugeridoMinutos * 60;
 
   return (
@@ -65,19 +65,9 @@ export function TempoTotalHoje({
   etapaAtualAcumulado: number;
   iniciadaEmAtual: string | null;
 }) {
-  const [segundosAtual, setSegundosAtual] = useState(() =>
-    iniciadaEmAtual ? segundosDesdeComLimite(iniciadaEmAtual) : 0
-  );
+  useTique(!!iniciadaEmAtual);
 
-  useEffect(() => {
-    if (!iniciadaEmAtual) {
-      setSegundosAtual(0);
-      return;
-    }
-    setSegundosAtual(segundosDesdeComLimite(iniciadaEmAtual));
-    const id = setInterval(() => setSegundosAtual(segundosDesdeComLimite(iniciadaEmAtual)), 1000);
-    return () => clearInterval(id);
-  }, [iniciadaEmAtual]);
+  const segundosAtual = iniciadaEmAtual ? segundosDesdeComLimite(iniciadaEmAtual) : 0;
 
   return (
     <p className="text-xs text-foreground/40">

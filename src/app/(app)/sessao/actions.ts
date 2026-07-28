@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { segundosDesdeComLimite } from "@/lib/tempo";
+import { LIMITE_CRONOMETRO_SEGUNDOS, segundosDesdeComLimite } from "@/lib/tempo";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -125,6 +125,35 @@ export async function retomarEtapa(etapaId: string) {
   revalidatePath("/sessao");
 }
 
+// Se a etapa atual ficou "iniciada" por mais tempo que o teto de segurança do
+// cronômetro (pessoa fechou a aba, voltou dias depois...), acumula o que já
+// rodou e reinicia o relógio a partir de agora — sem isso, quem retomasse uma
+// sessão abandonada via "Estudar Agora" via o tempo travado no teto (180:00)
+// pra sempre, mesmo sem ter feito nada ainda na volta.
+async function retomarEtapaSeAbandonada(supabase: SupabaseClient, sessaoId: string) {
+  const { data: atual } = await supabase
+    .from("sessao_etapas")
+    .select("id, iniciada_em, tempo_acumulado_segundos")
+    .eq("sessao_id", sessaoId)
+    .eq("concluida", false)
+    .order("ordem", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (!atual?.iniciada_em) return;
+
+  const decorrido = segundosDesdeComLimite(atual.iniciada_em);
+  if (decorrido < LIMITE_CRONOMETRO_SEGUNDOS) return;
+
+  await supabase
+    .from("sessao_etapas")
+    .update({
+      tempo_acumulado_segundos: (atual.tempo_acumulado_segundos ?? 0) + decorrido,
+      iniciada_em: new Date().toISOString(),
+    })
+    .eq("id", atual.id);
+}
+
 // Garante que existe uma sessão em andamento pro usuário (cria uma nova se
 // não houver), sem redirecionar — usado tanto pelo botão "Estudar Agora"
 // quanto pelo fim do onboarding, que precisam de comportamentos diferentes
@@ -137,7 +166,10 @@ export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId
     .eq("status", "em_andamento")
     .maybeSingle();
 
-  if (existente) return existente.id as string;
+  if (existente) {
+    await retomarEtapaSeAbandonada(supabase, existente.id);
+    return existente.id as string;
+  }
 
   const disciplina = await escolherDisciplina(supabase, userId);
   if (!disciplina) return null;
