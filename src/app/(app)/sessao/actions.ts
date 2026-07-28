@@ -158,6 +158,14 @@ async function retomarEtapaSeAbandonada(supabase: SupabaseClient, sessaoId: stri
 // não houver), sem redirecionar — usado tanto pelo botão "Estudar Agora"
 // quanto pelo fim do onboarding, que precisam de comportamentos diferentes
 // depois de garantir a sessão.
+//
+// Importante: NÃO liga o cronômetro da primeira etapa aqui. O onboarding
+// chama essa função minutos antes da pessoa realmente entrar em /sessao (só
+// pra ter a preview pronta no Painel/Dashboard) — se o relógio começasse a
+// contar aqui, a animação de "Preparando sua metodologia..." e o tempo
+// olhando o Painel já apareceriam como tempo estudado. Quem liga o
+// cronômetro de verdade é iniciarSessao(), no momento em que a pessoa
+// efetivamente vai pra tela de estudo.
 export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId: string) {
   const { data: existente } = await supabase
     .from("sessoes")
@@ -185,7 +193,6 @@ export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId
     await supabase.from("sessao_etapas").insert(
       tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
     );
-    await iniciarProximaEtapa(supabase, sessao.id);
   }
 
   return sessao?.id ?? null;
@@ -196,6 +203,11 @@ export async function iniciarSessao() {
 
   const sessaoId = await garantirSessaoEmAndamento(supabase, user.id);
   if (!sessaoId) redirect("/planejamento");
+
+  // é aqui, e só aqui, que o cronômetro da etapa atual liga — no momento em
+  // que a pessoa efetivamente está indo pra tela de estudo. Se a etapa já
+  // estava em andamento, iniciarProximaEtapa não faz nada (idempotente).
+  await iniciarProximaEtapa(supabase, sessaoId);
 
   redirect("/sessao");
 }
