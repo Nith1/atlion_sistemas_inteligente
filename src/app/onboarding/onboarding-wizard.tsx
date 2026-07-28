@@ -7,6 +7,7 @@ import { concluirOnboarding } from "./actions";
 import { Preparando } from "./preparando";
 import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
 import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina } from "@/lib/disciplinas";
+import { extrairTopicos, type Topico } from "@/lib/assuntos-parser";
 
 const HORAS_OPCOES = [
   { label: "1h", valor: 1 },
@@ -59,6 +60,8 @@ type FormState = {
   trabalha: boolean | null;
   horasLiquidasDia: number | null;
   disciplinas: string[];
+  // chave = nome da disciplina (como digitado em form.disciplinas)
+  assuntosPorDisciplina: Record<string, Topico[]>;
   cursoPreparatorio: string;
   ativacaoModo: AtivacaoModo;
 };
@@ -69,6 +72,7 @@ const estadoInicial: FormState = {
   trabalha: null,
   horasLiquidasDia: null,
   disciplinas: [""],
+  assuntosPorDisciplina: {},
   cursoPreparatorio: "",
   ativacaoModo: "questoes",
 };
@@ -90,7 +94,7 @@ export function OnboardingWizard() {
   function iniciarPreparacao() {
     setErro(null);
     setDirecao(1);
-    setEtapa(3);
+    setEtapa(4);
 
     const inicio = Date.now();
     const DURACAO_MINIMA_MS = 5600;
@@ -106,12 +110,16 @@ export function OnboardingWizard() {
         disciplinas: form.disciplinas
           .map((nome) => nome.trim())
           .filter(Boolean)
-          .map((nome) => ({ nome, tipo: inferirTipoDisciplina(nome) })),
+          .map((nome) => ({
+            nome,
+            tipo: inferirTipoDisciplina(nome),
+            assuntos: form.assuntosPorDisciplina[nome] ?? [],
+          })),
       });
 
       if (resultado?.error) {
         setErro(resultado.error);
-        irPara(2);
+        irPara(3);
         return;
       }
 
@@ -131,14 +139,14 @@ export function OnboardingWizard() {
 
   return (
     <div className="w-full max-w-md">
-      {etapa < 3 && (
+      {etapa < 4 && (
         <div className="mb-10 flex items-center justify-between">
           <div className="flex gap-1.5">
-            {[1, 2, 3].map((n) => (
+            {[1, 2, 3, 4].map((n) => (
               <span key={n} className={`h-1.5 w-1.5 rounded-full ${n <= etapa ? "bg-gold" : "bg-foreground/15"}`} />
             ))}
           </div>
-          <span className="text-xs text-foreground/40">Etapa {etapa} de 3</span>
+          <span className="text-xs text-foreground/40">Etapa {etapa} de 4</span>
         </div>
       )}
 
@@ -164,12 +172,20 @@ export function OnboardingWizard() {
               form={form}
               setForm={setForm}
               podeContinuar={podeContinuarEtapa2}
-              erro={erro}
               onVoltar={() => irPara(1)}
+              onContinuar={() => irPara(3)}
+            />
+          )}
+          {etapa === 3 && (
+            <Etapa3
+              form={form}
+              setForm={setForm}
+              erro={erro}
+              onVoltar={() => irPara(2)}
               onContinuar={iniciarPreparacao}
             />
           )}
-          {etapa === 3 && <Preparando />}
+          {etapa === 4 && <Preparando />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -279,14 +295,12 @@ function Etapa2({
   form,
   setForm,
   podeContinuar,
-  erro,
   onVoltar,
   onContinuar,
 }: {
   form: FormState;
   setForm: React.Dispatch<React.SetStateAction<FormState>>;
   podeContinuar: boolean;
-  erro: string | null;
   onVoltar: () => void;
   onContinuar: () => void;
 }) {
@@ -443,8 +457,6 @@ function Etapa2({
         </div>
       </div>
 
-      {erro && <p className="mt-4 text-sm text-red-600">{erro}</p>}
-
       <div className="mt-8 flex items-center justify-between">
         <button type="button" onClick={onVoltar} className="text-sm text-foreground/60 hover:text-foreground">
           Voltar
@@ -469,6 +481,198 @@ function Etapa2({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function Etapa3({
+  form,
+  setForm,
+  erro,
+  onVoltar,
+  onContinuar,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  erro: string | null;
+  onVoltar: () => void;
+  onContinuar: () => void;
+}) {
+  const disciplinasValidas = form.disciplinas.map((d) => d.trim()).filter(Boolean);
+
+  function definirAssuntos(nomeDisciplina: string, topicos: Topico[]) {
+    setForm((atual) => ({
+      ...atual,
+      assuntosPorDisciplina: { ...atual.assuntosPorDisciplina, [nomeDisciplina]: topicos },
+    }));
+  }
+
+  return (
+    <div>
+      <h1 className="text-xl font-semibold text-foreground">Assuntos de cada disciplina</h1>
+      <p className="mt-1 text-sm text-foreground/60">
+        Opcional — cole o edital ou o índice do material, ou pule e adicione depois em Planejamento.
+      </p>
+
+      <div className="mt-6 space-y-3">
+        {disciplinasValidas.map((nome) => (
+          <PainelAssuntosDisciplina
+            key={nome}
+            nomeDisciplina={nome}
+            topicos={form.assuntosPorDisciplina[nome] ?? []}
+            onMudar={(topicos) => definirAssuntos(nome, topicos)}
+          />
+        ))}
+      </div>
+
+      {erro && <p className="mt-4 text-sm text-red-600">{erro}</p>}
+
+      <div className="mt-8 flex items-center justify-between">
+        <button type="button" onClick={onVoltar} className="text-sm text-foreground/60 hover:text-foreground">
+          Voltar
+        </button>
+        <button
+          type="button"
+          onClick={onContinuar}
+          className="rounded-md bg-navy px-6 py-3 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90"
+        >
+          Continuar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PainelAssuntosDisciplina({
+  nomeDisciplina,
+  topicos,
+  onMudar,
+}: {
+  nomeDisciplina: string;
+  topicos: Topico[];
+  onMudar: (topicos: Topico[]) => void;
+}) {
+  const [nomeNovo, setNomeNovo] = useState("");
+  const [textoLote, setTextoLote] = useState("");
+  const [mostrarLote, setMostrarLote] = useState(false);
+
+  function adicionarUm() {
+    const nome = nomeNovo.trim();
+    if (!nome) return;
+    onMudar([...topicos, { nivel: 1, nome }]);
+    setNomeNovo("");
+  }
+
+  function adicionarLote() {
+    const novos = extrairTopicos(textoLote);
+    if (novos.length === 0) return;
+    onMudar([...topicos, ...novos]);
+    setTextoLote("");
+    setMostrarLote(false);
+  }
+
+  // remove o tópico e seus sub-assuntos (os que vêm logo depois com nível
+  // maior), senão sobrava sub-assunto órfão na lista
+  function remover(indice: number) {
+    const alvo = topicos[indice];
+    let fim = indice + 1;
+    while (fim < topicos.length && topicos[fim].nivel > alvo.nivel) fim++;
+    onMudar([...topicos.slice(0, indice), ...topicos.slice(fim)]);
+  }
+
+  return (
+    <details open className="rounded-md border border-foreground/15 p-4">
+      <summary className="cursor-pointer list-none font-medium text-foreground">
+        {nomeDisciplina}{" "}
+        <span className="text-sm font-normal text-foreground/50">
+          · {topicos.length} assunto{topicos.length === 1 ? "" : "s"}
+        </span>
+      </summary>
+
+      {topicos.length > 0 && (
+        <div className="mt-3 space-y-1.5">
+          {topicos.map((topico, indice) => (
+            <div
+              key={indice}
+              style={{ marginLeft: (topico.nivel - 1) * 16 }}
+              className="flex items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/3 px-3 py-1.5 text-sm"
+            >
+              <span className="text-foreground">{topico.nome}</span>
+              <button
+                type="button"
+                onClick={() => remover(indice)}
+                aria-label={`Remover ${topico.nome}`}
+                className="shrink-0 text-foreground/40 hover:text-red-500"
+              >
+                ×
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-3 flex gap-2">
+        <input
+          type="text"
+          value={nomeNovo}
+          onChange={(e) => setNomeNovo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              adicionarUm();
+            }
+          }}
+          placeholder="Novo assunto"
+          className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+        />
+        <button
+          type="button"
+          onClick={adicionarUm}
+          className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
+          Adicionar
+        </button>
+      </div>
+
+      <div className="mt-2">
+        {mostrarLote ? (
+          <div className="space-y-2">
+            <textarea
+              value={textoLote}
+              onChange={(e) => setTextoLote(e.target.value)}
+              rows={4}
+              placeholder={
+                "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...) — os subtópicos ficam aninhados dentro do assunto principal."
+              }
+              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={adicionarLote}
+                className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+              >
+                Adicionar todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setMostrarLote(false)}
+                className="text-sm text-foreground/50 hover:text-foreground"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setMostrarLote(true)}
+            className="text-xs text-foreground/50 hover:text-foreground"
+          >
+            colar vários assuntos de uma vez
+          </button>
+        )}
+      </div>
+    </details>
   );
 }
 

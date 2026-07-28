@@ -1,9 +1,11 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
+import { type Topico } from "@/lib/assuntos-parser";
 import { garantirSessaoEmAndamento } from "../(app)/sessao/actions";
 
-export type DisciplinaInput = { nome: string; tipo: string };
+export type DisciplinaInput = { nome: string; tipo: string; assuntos: Topico[] };
 
 export type OnboardingPayload = {
   concurso: string;
@@ -41,17 +43,50 @@ export async function concluirOnboarding(payload: OnboardingPayload) {
   }
 
   if (payload.disciplinas.length > 0) {
-    const { error: disciplinasError } = await supabase.from("disciplinas").insert(
-      payload.disciplinas.map((disciplina, indice) => ({
-        user_id: user.id,
-        nome: disciplina.nome,
-        tipo: disciplina.tipo,
-        ordem: indice,
-      }))
-    );
+    const { data: disciplinasInseridas, error: disciplinasError } = await supabase
+      .from("disciplinas")
+      .insert(
+        payload.disciplinas.map((disciplina, indice) => ({
+          user_id: user.id,
+          nome: disciplina.nome,
+          tipo: disciplina.tipo,
+          ordem: indice,
+        }))
+      )
+      .select("id, nome");
 
     if (disciplinasError) {
       return { error: disciplinasError.message };
+    }
+
+    // liga cada tópico ao pai mais recente do nível anterior, igual ao
+    // "colar em lote" de Planejamento — mesma lógica, só que aqui roda pra
+    // todas as disciplinas de uma vez, no fim do onboarding
+    const linhasDeAssuntos = (disciplinasInseridas ?? []).flatMap((disciplina) => {
+      const topicos = payload.disciplinas.find((d) => d.nome === disciplina.nome)?.assuntos ?? [];
+      const pilha: string[] = [];
+
+      return topicos.map((topico, indice) => {
+        const id = randomUUID();
+        const parentId = topico.nivel > 1 ? pilha[topico.nivel - 2] ?? null : null;
+        pilha[topico.nivel - 1] = id;
+        pilha.length = topico.nivel;
+
+        return {
+          id,
+          disciplina_id: disciplina.id,
+          nome: topico.nome,
+          ordem: indice,
+          parent_id: parentId,
+        };
+      });
+    });
+
+    if (linhasDeAssuntos.length > 0) {
+      const { error: assuntosError } = await supabase.from("assuntos").insert(linhasDeAssuntos);
+      if (assuntosError) {
+        return { error: assuntosError.message };
+      }
     }
   }
 
