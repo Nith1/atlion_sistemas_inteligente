@@ -59,6 +59,10 @@ export function MotorVisual() {
 
   useEffect(() => {
     if (fase !== "processando") {
+      // reinicia o texto pro início do ciclo seguinte — sem isso, a segunda
+      // vez que a fase "processando" aparece começaria do meio da lista de
+      // textos, em vez de "Analisando..." de novo.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setTextoIndex(0);
       return;
     }

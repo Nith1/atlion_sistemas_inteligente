@@ -23,6 +23,10 @@ export function Sidebar() {
   const [colapsada, setColapsada] = useState(false);
 
   useEffect(() => {
+    // localStorage não existe no server — só dá pra ler depois de montar no
+    // client, por isso não dá pra calcular isso direto no render (evitaria
+    // o efeito, mas quebraria a hidratação).
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (window.localStorage.getItem(CHAVE_COLAPSO) === "1") setColapsada(true);
   }, []);
 

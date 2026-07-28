@@ -8,8 +8,9 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Atlion",
-  description: "Sistema de aprovação para concursos",
+  title: "ATLION — Sistema de planejamento para concursos",
+  description:
+    "A ATLION organiza automaticamente sua preparação: disciplinas, revisão e progressão, sem você precisar decidir o que estudar a cada dia.",
 };
 
 export default function RootLayout({

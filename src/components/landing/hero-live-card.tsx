@@ -44,7 +44,12 @@ export function HeroLiveCard() {
   const [fase, setFase] = useState<Fase>("parado");
 
   useEffect(() => {
+    // A hora de "agora" só pode ser lida depois de montar no client — se
+    // calculada direto no render, o horário do servidor (onde a página foi
+    // renderizada) pode divergir do horário do visitante e quebrar a
+    // hidratação.
     const hora = new Date().getHours();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (hora >= 5 && hora < 12) setSaudacao("Bom dia");
     else if (hora >= 12 && hora < 18) setSaudacao("Boa tarde");
     else setSaudacao("Boa noite");
