@@ -3,13 +3,19 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LoginForm } from "./login-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ conta?: string; erro?: string }>;
+}) {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (user) redirect("/painel");
+
+  const params = await searchParams;
 
   return (
     <main className="flex flex-1 items-center justify-center px-6 py-16">
@@ -18,6 +24,16 @@ export default async function LoginPage() {
         <p className="mt-2 text-sm text-foreground/70">
           Continue de onde você parou.
         </p>
+        {params.conta === "encerrada" && (
+          <p className="mt-4 rounded-md border border-foreground/10 bg-foreground/5 p-3 text-sm text-foreground/70">
+            Sua conta foi encerrada. Esperamos ver você de novo.
+          </p>
+        )}
+        {params.erro === "confirmacao" && (
+          <p className="mt-4 rounded-md border border-red-600/20 bg-red-600/5 p-3 text-sm text-red-600">
+            Não foi possível confirmar. Tente de novo.
+          </p>
+        )}
         <LoginForm />
         <p className="mt-8 text-sm text-foreground/70">
           Ainda não tem conta?{" "}

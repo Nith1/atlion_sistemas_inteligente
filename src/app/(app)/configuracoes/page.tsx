@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { salvarConfiguracoes } from "./actions";
+import { cancelarConta, resetarTudo, salvarConfiguracoes } from "./actions";
+import { ConfirmButton } from "./confirm-button";
 import { TrocarSenhaForm } from "./trocar-senha-form";
 
 const ATIVACAO_MODOS = [
@@ -114,6 +115,44 @@ export default async function ConfiguracoesPage() {
         <h2 className="text-sm font-medium text-foreground/70">Trocar senha</h2>
         <div className="mt-4">
           <TrocarSenhaForm />
+        </div>
+      </div>
+
+      <div className="mt-12 border-t border-red-600/20 pt-8">
+        <h2 className="text-sm font-medium text-red-600">Zona de risco</h2>
+
+        <div className="mt-4 flex items-center justify-between gap-4 rounded-md border border-foreground/10 p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Resetar tudo</p>
+            <p className="mt-0.5 text-xs text-foreground/50">
+              Apaga disciplinas, assuntos, sessões e histórico. Sua conta continua — você refaz o onboarding do zero.
+            </p>
+          </div>
+          <form action={resetarTudo}>
+            <ConfirmButton
+              mensagem="Isso apaga todas as suas disciplinas, assuntos, sessões e histórico de questões — sem volta. Sua conta continua ativa, mas você vai precisar refazer o onboarding. Confirma?"
+              className="shrink-0 rounded-md border border-red-600/30 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-600/5"
+            >
+              Resetar tudo
+            </ConfirmButton>
+          </form>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between gap-4 rounded-md border border-foreground/10 p-4">
+          <div>
+            <p className="text-sm font-medium text-foreground">Cancelar conta</p>
+            <p className="mt-0.5 text-xs text-foreground/50">
+              Apaga sua conta e todos os seus dados permanentemente. Não tem como desfazer.
+            </p>
+          </div>
+          <form action={cancelarConta}>
+            <ConfirmButton
+              mensagem="Isso apaga sua conta e todos os seus dados PERMANENTEMENTE — não tem como desfazer, nem suporte vai conseguir recuperar. Tem certeza?"
+              className="shrink-0 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Cancelar conta
+            </ConfirmButton>
+          </form>
         </div>
       </div>
     </div>
