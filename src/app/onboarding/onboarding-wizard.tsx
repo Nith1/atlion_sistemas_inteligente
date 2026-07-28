@@ -6,7 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { concluirOnboarding } from "./actions";
 import { Preparando } from "./preparando";
 import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
-import { inferirTipoDisciplina } from "@/lib/disciplinas";
+import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina } from "@/lib/disciplinas";
 
 const HORAS_OPCOES = [
   { label: "1h", valor: 1 },
@@ -17,6 +17,18 @@ const HORAS_OPCOES = [
 ];
 
 const PLACEHOLDERS_DISCIPLINA = ["Ex: Português", "Ex: Direito Constitucional", "Ex: Direito Penal", "Ex: Informática"];
+
+const CATEGORIA_LABEL: Record<string, string> = {
+  juridica: "Jurídica",
+  exatas: "Exatas",
+  humanas: "Humanas",
+  informatica: "Informática",
+  idiomas: "Idiomas",
+};
+
+// achata as sugestões por categoria numa lista única, pro autocomplete de
+// cada campo (que não sabe/precisa saber a categoria enquanto a pessoa digita)
+const TODAS_SUGESTOES = Object.values(DISCIPLINAS_SUGERIDAS).flat();
 
 type AtivacaoModo = "questoes" | "anki" | "questoes_anki";
 
@@ -278,6 +290,9 @@ function Etapa2({
   onVoltar: () => void;
   onContinuar: () => void;
 }) {
+  const [sugestaoAberta, setSugestaoAberta] = useState<number | null>(null);
+  const [mostrarPicker, setMostrarPicker] = useState(false);
+
   function atualizarDisciplina(indice: number, valor: string) {
     setForm((atual) => ({
       ...atual,
@@ -296,6 +311,21 @@ function Etapa2({
     }));
   }
 
+  // usado tanto pelo clique numa sugestão do autocomplete quanto pelo
+  // picker por categoria — clicar de novo numa já escolhida remove
+  function alternarDisciplina(nome: string) {
+    setForm((atual) => {
+      const nomeLower = nome.toLowerCase();
+      const jaTem = atual.disciplinas.some((d) => d.trim().toLowerCase() === nomeLower);
+      if (jaTem) {
+        const restante = atual.disciplinas.filter((d) => d.trim().toLowerCase() !== nomeLower);
+        return { ...atual, disciplinas: restante.length > 0 ? restante : [""] };
+      }
+      const semVazias = atual.disciplinas.filter((d) => d.trim().length > 0);
+      return { ...atual, disciplinas: [...semVazias, nome] };
+    });
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-foreground">Seus estudos</h1>
@@ -305,31 +335,74 @@ function Etapa2({
         <div>
           <label className="mb-2 block text-sm text-foreground/60">Disciplinas</label>
           <div className="space-y-2">
-            {form.disciplinas.map((disciplina, indice) => (
-              <div key={indice} className="flex gap-2">
-                <input
-                  type="text"
-                  value={disciplina}
-                  onChange={(e) => atualizarDisciplina(indice, e.target.value)}
-                  placeholder={PLACEHOLDERS_DISCIPLINA[indice % PLACEHOLDERS_DISCIPLINA.length]}
-                  className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-                />
-                {form.disciplinas.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removerCampoDisciplina(indice)}
-                    aria-label="Remover disciplina"
-                    className="shrink-0 rounded-md px-3 text-foreground/40 hover:text-red-500"
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-            ))}
+            {form.disciplinas.map((disciplina, indice) => {
+              const termo = disciplina.trim().toLowerCase();
+              const sugestoes =
+                termo.length > 0
+                  ? TODAS_SUGESTOES.filter((s) => s.toLowerCase().includes(termo) && s.toLowerCase() !== termo).slice(0, 6)
+                  : [];
+
+              return (
+                <div key={indice} className="flex gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      value={disciplina}
+                      onChange={(e) => {
+                        atualizarDisciplina(indice, e.target.value);
+                        setSugestaoAberta(indice);
+                      }}
+                      onFocus={() => setSugestaoAberta(indice)}
+                      onBlur={() => setTimeout(() => setSugestaoAberta((atual) => (atual === indice ? null : atual)), 120)}
+                      placeholder={PLACEHOLDERS_DISCIPLINA[indice % PLACEHOLDERS_DISCIPLINA.length]}
+                      className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                    />
+                    {sugestaoAberta === indice && sugestoes.length > 0 && (
+                      <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-foreground/15 bg-background shadow-lg">
+                        {sugestoes.map((s) => (
+                          <li key={s}>
+                            <button
+                              type="button"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                atualizarDisciplina(indice, s);
+                                setSugestaoAberta(null);
+                              }}
+                              className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-gold/10"
+                            >
+                              {s}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  {form.disciplinas.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removerCampoDisciplina(indice)}
+                      aria-label="Remover disciplina"
+                      className="shrink-0 rounded-md px-3 text-foreground/40 hover:text-red-500"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          <button type="button" onClick={adicionarCampoDisciplina} className="mt-2 text-sm text-gold hover:opacity-80">
-            + Adicionar disciplina
-          </button>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <button type="button" onClick={adicionarCampoDisciplina} className="text-sm text-gold hover:opacity-80">
+              + Adicionar disciplina
+            </button>
+            <button
+              type="button"
+              onClick={() => setMostrarPicker(true)}
+              className="text-sm text-foreground/60 underline underline-offset-4 hover:text-foreground"
+            >
+              Escolher da lista
+            </button>
+          </div>
         </div>
 
         <div>
@@ -385,7 +458,98 @@ function Etapa2({
           Continuar
         </button>
       </div>
+
+      <AnimatePresence>
+        {mostrarPicker && (
+          <DisciplinaPicker
+            selecionadas={form.disciplinas}
+            onAlternar={alternarDisciplina}
+            onFechar={() => setMostrarPicker(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function DisciplinaPicker({
+  selecionadas,
+  onAlternar,
+  onFechar,
+}: {
+  selecionadas: string[];
+  onAlternar: (nome: string) => void;
+  onFechar: () => void;
+}) {
+  const selecionadasLower = new Set(selecionadas.map((d) => d.trim().toLowerCase()).filter(Boolean));
+  const totalSelecionadas = selecionadasLower.size;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.2 }}
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-6"
+      onClick={onFechar}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 24 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-t-2xl border border-foreground/10 bg-background p-6 shadow-xl sm:rounded-2xl"
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-semibold text-foreground">Escolher disciplinas</h2>
+          <button type="button" onClick={onFechar} className="text-sm text-foreground/50 hover:text-foreground">
+            Fechar
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-foreground/50">Clique pra adicionar ou remover. Dá pra digitar as suas também.</p>
+
+        <div className="mt-5 space-y-5">
+          {Object.entries(DISCIPLINAS_SUGERIDAS)
+            .filter(([, nomes]) => nomes.length > 0)
+            .map(([tipo, nomes]) => (
+              <div key={tipo}>
+                <p className="text-xs font-medium uppercase tracking-wider text-foreground/40">
+                  {CATEGORIA_LABEL[tipo] ?? tipo}
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {nomes.map((nome) => {
+                    const selecionada = selecionadasLower.has(nome.toLowerCase());
+                    return (
+                      <button
+                        type="button"
+                        key={nome}
+                        onClick={() => onAlternar(nome)}
+                        className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                          selecionada
+                            ? "border-gold bg-gold/10 text-foreground"
+                            : "border-foreground/20 text-foreground/70 hover:border-foreground/40"
+                        }`}
+                      >
+                        {selecionada && "✓ "}
+                        {nome}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={onFechar}
+          className="mt-6 w-full rounded-md bg-navy px-5 py-3 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
+          Concluído{totalSelecionadas > 0 ? ` (${totalSelecionadas})` : ""}
+        </button>
+      </motion.div>
+    </motion.div>
   );
 }
 
