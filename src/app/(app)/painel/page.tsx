@@ -77,7 +77,7 @@ export default async function PainelPage() {
               return (
                 <div
                   key={etapa.id}
-                  className="flex items-center justify-between gap-3 rounded-md border border-foreground/10 px-4 py-2.5 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 rounded-md border border-foreground/10 px-4 py-2.5 text-sm"
                 >
                   <span className="font-medium text-foreground">{rotulo}</span>
                   <MinutosEtapaEditavel etapaId={etapa.id} minutosAtual={minutosDaEtapa(etapa)} tipo={etapa.tipo} />

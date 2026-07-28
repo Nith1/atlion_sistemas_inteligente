@@ -25,7 +25,7 @@ export function MinutosEtapaEditavel({
           setEditando(true);
         }}
         title="Ajustar tempo dessa etapa"
-        className="shrink-0 text-foreground/50 underline decoration-dotted underline-offset-4 hover:text-foreground"
+        className="ml-auto shrink-0 text-foreground/50 underline decoration-dotted underline-offset-4 hover:text-foreground"
       >
         {minutosAtual} min
       </button>
@@ -34,11 +34,15 @@ export function MinutosEtapaEditavel({
 
   const aviso = avisoTempoBaixo(tipo, valor);
 
+  // w-full força essa linha a quebrar pra baixo do rótulo da etapa (o pai é
+  // flex-wrap) — numa etapa como "Estudo — Direito Administrativo" não
+  // sobra espaço horizontal pra tudo isso ficar ao lado do texto, sobretudo
+  // no mobile.
   return (
-    <div className="flex shrink-0 flex-col items-end gap-1">
+    <div className="w-full">
       <form
         action={ajustarMinutosEtapa.bind(null, etapaId)}
-        className="flex items-center gap-1.5"
+        className="flex items-center justify-end gap-1.5"
         onSubmit={() => setEditando(false)}
       >
         <input
@@ -51,18 +55,25 @@ export function MinutosEtapaEditavel({
           className="w-14 rounded border border-foreground/20 bg-transparent px-1.5 py-0.5 text-right text-sm outline-none focus:border-gold"
         />
         <span className="text-xs text-foreground/40">min</span>
-        <button type="submit" className="text-xs font-medium text-gold hover:opacity-80">
-          confirmar
+        <button
+          type="submit"
+          aria-label="Confirmar"
+          title="Confirmar"
+          className="rounded-full p-1 text-gold hover:opacity-80"
+        >
+          ✓
         </button>
         <button
           type="button"
           onClick={() => setEditando(false)}
-          className="text-xs text-foreground/40 hover:text-foreground"
+          aria-label="Cancelar"
+          title="Cancelar"
+          className="rounded-full p-1 text-foreground/40 hover:text-foreground"
         >
-          cancelar
+          ×
         </button>
       </form>
-      {aviso && <p className="max-w-[200px] text-right text-xs text-gold/90">{aviso}</p>}
+      {aviso && <p className="mt-1 text-right text-xs text-gold/90">{aviso}</p>}
     </div>
   );
 }
