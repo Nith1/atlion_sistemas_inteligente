@@ -47,12 +47,14 @@ export default async function SessaoPage() {
 
   const { data: sessao } = await supabase
     .from("sessoes")
-    .select("id, disciplina_id")
+    .select("id, disciplina_id, ajuste_tempo")
     .eq("user_id", user.id)
     .eq("status", "em_andamento")
     .maybeSingle();
 
   if (!sessao) redirect("/painel");
+
+  const ajusteTempo = sessao.ajuste_tempo ?? 1;
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
@@ -457,8 +459,12 @@ export default async function SessaoPage() {
             <Cronometro
               tempoAcumuladoSegundos={acumuladoEtapaAtual}
               iniciadaEm={etapaAtual.iniciada_em}
-              sugeridoMinutos={MINUTOS_SUGERIDOS[etapaAtual.tipo]}
-              sugeridoLabel={SUGERIDO_LABEL[etapaAtual.tipo]}
+              sugeridoMinutos={
+                MINUTOS_SUGERIDOS[etapaAtual.tipo] !== undefined
+                  ? Math.round(MINUTOS_SUGERIDOS[etapaAtual.tipo] * ajusteTempo)
+                  : undefined
+              }
+              sugeridoLabel={ajusteTempo === 1 ? SUGERIDO_LABEL[etapaAtual.tipo] : undefined}
             />
             {etapaAtual.iniciada_em ? (
               <form action={pausarEtapa.bind(null, etapaAtual.id)}>

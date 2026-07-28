@@ -24,3 +24,12 @@ export const MINUTOS_SUGERIDOS: Record<string, number> = {
 export const SUGERIDO_LABEL: Partial<Record<string, string>> = {
   ativacao_cognitiva: "10–15 min",
 };
+
+// Ajuste de tempo por sessão: multiplicador sobre MINUTOS_SUGERIDOS, pra
+// quem tem mais ou menos tempo naquele dia específico. É por sessão, não
+// uma preferência salva — o padrão (1) sempre volta na próxima sessão.
+export const AJUSTES_TEMPO: { valor: number; label: string }[] = [
+  { valor: 0.7, label: "Menos tempo hoje" },
+  { valor: 1, label: "Padrão" },
+  { valor: 1.3, label: "Mais tempo hoje" },
+];

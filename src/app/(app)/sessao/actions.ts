@@ -198,6 +198,22 @@ export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId
   return sessao?.id ?? null;
 }
 
+const AJUSTES_TEMPO_VALIDOS = [0.7, 1, 1.3];
+
+// Ajusta o multiplicador de tempo da sessão atual (ver 0009_ajuste_tempo_sessao.sql).
+// Não é uma preferência — é só pra sessão de hoje; a próxima já volta pro
+// padrão sozinha.
+export async function ajustarTempoSessao(sessaoId: string, multiplicador: number) {
+  const { supabase } = await requireUser();
+
+  if (!AJUSTES_TEMPO_VALIDOS.includes(multiplicador)) return;
+
+  await supabase.from("sessoes").update({ ajuste_tempo: multiplicador }).eq("id", sessaoId);
+
+  revalidatePath("/painel");
+  revalidatePath("/sessao");
+}
+
 export async function iniciarSessao() {
   const { supabase, user } = await requireUser();
 

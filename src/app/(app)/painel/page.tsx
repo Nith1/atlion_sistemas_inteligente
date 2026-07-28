@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { iniciarSessao } from "../sessao/actions";
-import { ETAPA_LABELS, MINUTOS_SUGERIDOS } from "@/lib/etapas";
+import { ajustarTempoSessao, iniciarSessao } from "../sessao/actions";
+import { AJUSTES_TEMPO, ETAPA_LABELS, MINUTOS_SUGERIDOS } from "@/lib/etapas";
 
 type EtapaPreview = { tipo: string };
 
@@ -23,10 +23,12 @@ export default async function PainelPage() {
 
   const { data: sessaoAtual } = await supabase
     .from("sessoes")
-    .select("id, disciplina_id")
+    .select("id, disciplina_id, ajuste_tempo")
     .eq("user_id", user.id)
     .eq("status", "em_andamento")
     .maybeSingle();
+
+  const ajusteTempo = sessaoAtual?.ajuste_tempo ?? 1;
 
   let etapasPreview: EtapaPreview[] = [];
   let disciplinaNome: string | null = null;
@@ -44,7 +46,9 @@ export default async function PainelPage() {
     disciplinaNome = disciplinaData?.nome ?? null;
   }
 
-  const tempoEstimadoMinutos = etapasPreview.reduce((soma, e) => soma + (MINUTOS_SUGERIDOS[e.tipo] ?? 0), 0);
+  const tempoEstimadoMinutos = Math.round(
+    etapasPreview.reduce((soma, e) => soma + (MINUTOS_SUGERIDOS[e.tipo] ?? 0), 0) * ajusteTempo
+  );
   const temSessaoPronta = sessaoAtual && etapasPreview.length > 0;
 
   return (
@@ -73,7 +77,9 @@ export default async function PainelPage() {
                   className="flex items-center justify-between gap-3 rounded-md border border-foreground/10 px-4 py-2.5 text-sm"
                 >
                   <span className="font-medium text-foreground">{rotulo}</span>
-                  <span className="shrink-0 text-foreground/50">{MINUTOS_SUGERIDOS[etapa.tipo] ?? 0} min</span>
+                  <span className="shrink-0 text-foreground/50">
+                    {Math.round((MINUTOS_SUGERIDOS[etapa.tipo] ?? 0) * ajusteTempo)} min
+                  </span>
                 </div>
               );
             })}
@@ -82,6 +88,24 @@ export default async function PainelPage() {
           <div className="mt-5 flex items-center justify-between border-t border-foreground/10 pt-4 text-sm">
             <span className="text-foreground/50">Tempo estimado</span>
             <span className="font-medium text-foreground">{tempoEstimadoMinutos} minutos</span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-foreground/40">Tempo de hoje:</span>
+            {AJUSTES_TEMPO.map((opcao) => (
+              <form key={opcao.valor} action={ajustarTempoSessao.bind(null, sessaoAtual!.id, opcao.valor)}>
+                <button
+                  type="submit"
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    ajusteTempo === opcao.valor
+                      ? "border-gold bg-gold/10 text-foreground"
+                      : "border-foreground/15 text-foreground/50 hover:border-foreground/30"
+                  }`}
+                >
+                  {opcao.label}
+                </button>
+              </form>
+            ))}
           </div>
 
           <form action={iniciarSessao} className="mt-6">
