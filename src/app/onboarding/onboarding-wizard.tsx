@@ -8,6 +8,7 @@ import { Preparando } from "./preparando";
 import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
 import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina } from "@/lib/disciplinas";
 import { extrairTopicos, type Topico } from "@/lib/assuntos-parser";
+import { ASSUNTOS_SUGERIDOS } from "@/lib/assuntos-sugeridos";
 
 const HORAS_OPCOES = [
   { label: "1h", valor: 1 },
@@ -554,12 +555,35 @@ function PainelAssuntosDisciplina({
   const [nomeNovo, setNomeNovo] = useState("");
   const [textoLote, setTextoLote] = useState("");
   const [mostrarLote, setMostrarLote] = useState(false);
+  const [sugestaoAberta, setSugestaoAberta] = useState(false);
+  const [mostrarComuns, setMostrarComuns] = useState(false);
+
+  const sugestoesBase = ASSUNTOS_SUGERIDOS[nomeDisciplina] ?? [];
+  const termo = nomeNovo.trim().toLowerCase();
+  const sugestoesFiltradas =
+    termo.length > 0
+      ? sugestoesBase.filter((s) => s.toLowerCase().includes(termo) && s.toLowerCase() !== termo).slice(0, 6)
+      : [];
+
+  // usado tanto pelo clique numa sugestão do autocomplete quanto pelos chips
+  // de "assuntos comuns" — clicar de novo num já adicionado remove
+  function alternarSugestao(nome: string) {
+    const jaTem = topicos.some((t) => t.nome.toLowerCase() === nome.toLowerCase());
+    onMudar(
+      jaTem
+        ? topicos.filter((t) => t.nome.toLowerCase() !== nome.toLowerCase())
+        : [...topicos, { nivel: 1, nome }]
+    );
+  }
 
   function adicionarUm() {
     const nome = nomeNovo.trim();
     if (!nome) return;
-    onMudar([...topicos, { nivel: 1, nome }]);
+    if (!topicos.some((t) => t.nome.toLowerCase() === nome.toLowerCase())) {
+      onMudar([...topicos, { nivel: 1, nome }]);
+    }
     setNomeNovo("");
+    setSugestaoAberta(false);
   }
 
   function adicionarLote() {
@@ -611,19 +635,46 @@ function PainelAssuntosDisciplina({
       )}
 
       <div className="mt-3 flex gap-2">
-        <input
-          type="text"
-          value={nomeNovo}
-          onChange={(e) => setNomeNovo(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              adicionarUm();
-            }
-          }}
-          placeholder="Novo assunto"
-          className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-        />
+        <div className="relative flex-1">
+          <input
+            type="text"
+            value={nomeNovo}
+            onChange={(e) => {
+              setNomeNovo(e.target.value);
+              setSugestaoAberta(true);
+            }}
+            onFocus={() => setSugestaoAberta(true)}
+            onBlur={() => setTimeout(() => setSugestaoAberta(false), 120)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                adicionarUm();
+              }
+            }}
+            placeholder="Novo assunto"
+            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+          {sugestaoAberta && sugestoesFiltradas.length > 0 && (
+            <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-foreground/15 bg-background shadow-lg">
+              {sugestoesFiltradas.map((s) => (
+                <li key={s}>
+                  <button
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => {
+                      alternarSugestao(s);
+                      setNomeNovo("");
+                      setSugestaoAberta(false);
+                    }}
+                    className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-gold/10"
+                  >
+                    {s}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
         <button
           type="button"
           onClick={adicionarUm}
@@ -632,6 +683,41 @@ function PainelAssuntosDisciplina({
           Adicionar
         </button>
       </div>
+
+      {sugestoesBase.length > 0 && (
+        <div className="mt-2">
+          {mostrarComuns ? (
+            <div className="flex flex-wrap gap-1.5">
+              {sugestoesBase.map((nome) => {
+                const selecionado = topicos.some((t) => t.nome.toLowerCase() === nome.toLowerCase());
+                return (
+                  <button
+                    type="button"
+                    key={nome}
+                    onClick={() => alternarSugestao(nome)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      selecionado
+                        ? "border-gold bg-gold/10 text-foreground"
+                        : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                    }`}
+                  >
+                    {selecionado && "✓ "}
+                    {nome}
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setMostrarComuns(true)}
+              className="text-xs text-foreground/50 hover:text-foreground"
+            >
+              ver assuntos comuns dessa disciplina
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="mt-2">
         {mostrarLote ? (
