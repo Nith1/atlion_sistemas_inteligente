@@ -33,3 +33,27 @@ export const AJUSTES_TEMPO: { valor: number; label: string }[] = [
   { valor: 1, label: "Padrão" },
   { valor: 1.3, label: "Mais tempo hoje" },
 ];
+
+// Piso mínimo por etapa, só pra avisar quando o ajuste manual fica baixo
+// demais — não bloqueia nada, a pessoa decide mesmo assim (gerenciável, mas
+// o padrão do método continua sendo a referência).
+const MINUTOS_MINIMOS: Partial<Record<string, number>> = {
+  ativacao_cognitiva: 10,
+};
+
+export function avisoTempoBaixo(tipo: string, minutos: number): string | null {
+  const minimo = MINUTOS_MINIMOS[tipo];
+
+  if (tipo === "ativacao_cognitiva" && minimo !== undefined && minutos < minimo) {
+    return "A Ativação Cognitiva é fundamental pra reforçar o que você já estudou — menos de 10 min pode não ser suficiente.";
+  }
+  if (minimo !== undefined && minutos < minimo) {
+    return `Menos que o mínimo recomendado (${minimo} min) pra essa etapa.`;
+  }
+
+  const sugerido = MINUTOS_SUGERIDOS[tipo];
+  if (sugerido && minutos < sugerido * 0.4) {
+    return "Bem menos que o normal — ok pra hoje, mas evite virar hábito.";
+  }
+  return null;
+}

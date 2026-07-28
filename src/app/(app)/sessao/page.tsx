@@ -35,6 +35,7 @@ type Etapa = {
   iniciada_em: string | null;
   tempo_gasto_segundos: number | null;
   tempo_acumulado_segundos: number;
+  minutos_ajustados: number | null;
 };
 
 export default async function SessaoPage() {
@@ -64,7 +65,9 @@ export default async function SessaoPage() {
 
   const { data: etapasData } = await supabase
     .from("sessao_etapas")
-    .select("id, tipo, ordem, concluida, assunto_id, iniciada_em, tempo_gasto_segundos, tempo_acumulado_segundos")
+    .select(
+      "id, tipo, ordem, concluida, assunto_id, iniciada_em, tempo_gasto_segundos, tempo_acumulado_segundos, minutos_ajustados"
+    )
     .eq("sessao_id", sessao.id)
     .order("ordem", { ascending: true });
 
@@ -460,11 +463,16 @@ export default async function SessaoPage() {
               tempoAcumuladoSegundos={acumuladoEtapaAtual}
               iniciadaEm={etapaAtual.iniciada_em}
               sugeridoMinutos={
-                MINUTOS_SUGERIDOS[etapaAtual.tipo] !== undefined
+                etapaAtual.minutos_ajustados ??
+                (MINUTOS_SUGERIDOS[etapaAtual.tipo] !== undefined
                   ? Math.round(MINUTOS_SUGERIDOS[etapaAtual.tipo] * ajusteTempo)
+                  : undefined)
+              }
+              sugeridoLabel={
+                ajusteTempo === 1 && etapaAtual.minutos_ajustados === null
+                  ? SUGERIDO_LABEL[etapaAtual.tipo]
                   : undefined
               }
-              sugeridoLabel={ajusteTempo === 1 ? SUGERIDO_LABEL[etapaAtual.tipo] : undefined}
             />
             {etapaAtual.iniciada_em ? (
               <form action={pausarEtapa.bind(null, etapaAtual.id)}>

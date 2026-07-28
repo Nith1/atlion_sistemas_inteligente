@@ -209,6 +209,23 @@ export async function ajustarTempoSessao(sessaoId: string, multiplicador: number
   if (!AJUSTES_TEMPO_VALIDOS.includes(multiplicador)) return;
 
   await supabase.from("sessoes").update({ ajuste_tempo: multiplicador }).eq("id", sessaoId);
+  // escolher um preset limpa ajustes manuais por etapa — senão um valor
+  // digitado antes ficaria "grudado", competindo com o multiplicador novo
+  await supabase.from("sessao_etapas").update({ minutos_ajustados: null }).eq("sessao_id", sessaoId);
+
+  revalidatePath("/painel");
+  revalidatePath("/sessao");
+}
+
+// Ajuste manual do tempo de uma etapa específica (ver 0010_minutos_ajustados_etapa.sql)
+// — sobrepõe o cálculo automático só pra ela, dentro da sessão de hoje.
+export async function ajustarMinutosEtapa(etapaId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+
+  const minutos = Math.round(Number(formData.get("minutos")));
+  if (!Number.isFinite(minutos) || minutos < 1) return;
+
+  await supabase.from("sessao_etapas").update({ minutos_ajustados: minutos }).eq("id", etapaId);
 
   revalidatePath("/painel");
   revalidatePath("/sessao");

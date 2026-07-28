@@ -2,8 +2,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ajustarTempoSessao, iniciarSessao } from "../sessao/actions";
 import { AJUSTES_TEMPO, ETAPA_LABELS, MINUTOS_SUGERIDOS } from "@/lib/etapas";
+import { MinutosEtapaEditavel } from "./minutos-etapa";
 
-type EtapaPreview = { tipo: string };
+type EtapaPreview = { id: string; tipo: string; minutos_ajustados: number | null };
 
 export default async function PainelPage() {
   const supabase = await createClient();
@@ -37,7 +38,7 @@ export default async function PainelPage() {
     const [{ data: etapasData }, { data: disciplinaData }] = await Promise.all([
       supabase
         .from("sessao_etapas")
-        .select("tipo")
+        .select("id, tipo, minutos_ajustados")
         .eq("sessao_id", sessaoAtual.id)
         .order("ordem", { ascending: true }),
       supabase.from("disciplinas").select("nome").eq("id", sessaoAtual.disciplina_id).single(),
@@ -46,9 +47,11 @@ export default async function PainelPage() {
     disciplinaNome = disciplinaData?.nome ?? null;
   }
 
-  const tempoEstimadoMinutos = Math.round(
-    etapasPreview.reduce((soma, e) => soma + (MINUTOS_SUGERIDOS[e.tipo] ?? 0), 0) * ajusteTempo
-  );
+  function minutosDaEtapa(etapa: EtapaPreview): number {
+    return etapa.minutos_ajustados ?? Math.round((MINUTOS_SUGERIDOS[etapa.tipo] ?? 0) * ajusteTempo);
+  }
+
+  const tempoEstimadoMinutos = etapasPreview.reduce((soma, e) => soma + minutosDaEtapa(e), 0);
   const temSessaoPronta = sessaoAtual && etapasPreview.length > 0;
 
   return (
@@ -68,18 +71,16 @@ export default async function PainelPage() {
           <p className="text-xs font-medium uppercase tracking-widest text-foreground/40">Hoje você vai estudar</p>
 
           <div className="mt-4 space-y-2">
-            {etapasPreview.map((etapa, i) => {
+            {etapasPreview.map((etapa) => {
               const rotuloBase = ETAPA_LABELS[etapa.tipo] ?? etapa.tipo;
               const rotulo = etapa.tipo === "estudo" && disciplinaNome ? `${rotuloBase} — ${disciplinaNome}` : rotuloBase;
               return (
                 <div
-                  key={i}
+                  key={etapa.id}
                   className="flex items-center justify-between gap-3 rounded-md border border-foreground/10 px-4 py-2.5 text-sm"
                 >
                   <span className="font-medium text-foreground">{rotulo}</span>
-                  <span className="shrink-0 text-foreground/50">
-                    {Math.round((MINUTOS_SUGERIDOS[etapa.tipo] ?? 0) * ajusteTempo)} min
-                  </span>
+                  <MinutosEtapaEditavel etapaId={etapa.id} minutosAtual={minutosDaEtapa(etapa)} tipo={etapa.tipo} />
                 </div>
               );
             })}
