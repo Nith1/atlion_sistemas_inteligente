@@ -31,6 +31,17 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// Reforço de segunda camada contra reenvio (a sessão offline enfileira
+// essas mesmas ações e só remove da fila após sucesso confirmado — ver
+// src/lib/sessao-offline/fila.ts — mas se a resposta se perder depois do
+// servidor já ter aplicado, o client tenta de novo). Sem essa guarda, um
+// reenvio duplicaria tempo gasto e, em concluirQuestoes, registros de
+// questões.
+async function etapaJaConcluida(supabase: SupabaseClient, etapaId: string): Promise<boolean> {
+  const { data } = await supabase.from("sessao_etapas").select("concluida").eq("id", etapaId).single();
+  return data?.concluida ?? false;
+}
+
 // Escolhe a disciplina que está mais "atrasada" (mais tempo sem ser
 // estudada, ponderado pela prioridade que a pessoa deu a ela em
 // Planejamento) — é assim que o sistema decide sozinho o que estudar hoje,
@@ -284,6 +295,8 @@ export async function concluirAtivacaoCognitiva(
   formData: FormData
 ) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
+
   const assuntoIds = formData.getAll("assuntoId") as string[];
 
   if (assuntoIds.length > 0) {
@@ -302,6 +315,7 @@ export async function concluirAtivacaoCognitiva(
 
 export async function concluirDescanso(etapaId: string, sessaoId: string) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
   await avancarEtapa(supabase, etapaId, sessaoId);
 }
 
@@ -311,6 +325,7 @@ export async function concluirEstudo(
   assuntoId: string | null
 ) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
 
   if (assuntoId) {
     await supabase
@@ -344,6 +359,7 @@ export async function continuarEstudoDepois(
   formData: FormData
 ) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
 
   if (assuntoId) {
     const progresso = (formData.get("progresso") as string)?.trim();
@@ -372,6 +388,7 @@ export async function concluirLeiSeca(
   formData: FormData
 ) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
@@ -415,6 +432,7 @@ export async function concluirJurisprudencia(
   formData: FormData
 ) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
 
   if (assuntoId) {
     const referencia = (formData.get("referencia") as string)?.trim();
@@ -434,6 +452,7 @@ export async function concluirJurisprudencia(
 
 export async function concluirConsolidacao(etapaId: string, sessaoId: string) {
   const { supabase } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
   await avancarEtapa(supabase, etapaId, sessaoId);
 }
 
@@ -445,6 +464,7 @@ export async function concluirQuestoes(
   formData: FormData
 ) {
   const { supabase, user } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
 
   const certas = Math.max(0, Number(formData.get("certas") ?? 0));
   const erradas = Math.max(0, Number(formData.get("erradas") ?? 0));
@@ -473,5 +493,9 @@ export async function concluirQuestoes(
     .update({ status: "concluida", concluida_em: new Date().toISOString() })
     .eq("id", sessaoId);
 
-  redirect("/painel");
+  // Não redireciona aqui: essa action pode ser chamada tanto por um submit
+  // normal quanto pela fila de sincronização offline (ver
+  // src/lib/sessao-offline/despachar.ts), e só o client sabe o momento
+  // certo de navegar — depois de mostrar "sessão concluída" e confirmar que
+  // sincronizou. Ver sessao-runtime.tsx.
 }
