@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ScrollReveal } from "./scroll-reveal";
+import { InstalarAppLink } from "./instalar-app-link";
 
 export function CtaFinal() {
   return (
@@ -19,6 +20,10 @@ export function CtaFinal() {
         >
           Começar agora
         </Link>
+      </ScrollReveal>
+
+      <ScrollReveal delayMs={220} className="mt-6">
+        <InstalarAppLink />
       </ScrollReveal>
     </section>
   );

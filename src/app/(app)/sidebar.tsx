@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { iniciarSessao } from "./sessao/actions";
 import { sair } from "./painel/actions";
+import { useInstalarApp } from "@/lib/pwa/usar-instalar-app";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", Icone: IconeDashboard },
@@ -158,12 +159,57 @@ function NavConteudo({
         })}
       </nav>
 
-      <form action={sair} className="mt-auto pt-6">
-        <button type="submit" className="text-sm text-foreground/40 hover:text-foreground">
-          Sair
-        </button>
-      </form>
+      <div className="mt-auto space-y-3 pt-6">
+        <InstalarApp />
+
+        <form action={sair}>
+          <button type="submit" className="text-sm text-foreground/40 hover:text-foreground">
+            Sair
+          </button>
+        </form>
+      </div>
     </div>
+  );
+}
+
+// Lembrete recorrente pra instalar o app (ver src/lib/pwa/usar-instalar-app.ts)
+// — some sozinho assim que instalado, ou se o navegador não suportar nem
+// beforeinstallprompt nem for iOS (ex: Firefox desktop).
+function InstalarApp() {
+  const { instalado, ehIOS, podeInstalar, instalar } = useInstalarApp();
+
+  if (instalado) return null;
+
+  if (podeInstalar) {
+    return (
+      <button
+        type="button"
+        onClick={instalar}
+        className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground/60 ring-1 ring-foreground/15 hover:text-foreground hover:ring-foreground/30"
+      >
+        <IconeInstalar className="h-4 w-4 shrink-0" />
+        Instalar app
+      </button>
+    );
+  }
+
+  if (ehIOS) {
+    return (
+      <p className="rounded-md px-3 py-2 text-xs text-foreground/40">
+        Instalar: toque em Compartilhar e depois em &quot;Adicionar à Tela de Início&quot;.
+      </p>
+    );
+  }
+
+  return null;
+}
+
+function IconeInstalar(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3v12m0 0-4-4m4 4 4-4" />
+      <path d="M5 17v2a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2" />
+    </svg>
   );
 }
 
