@@ -1,9 +1,14 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { PRIORIDADES, type Prioridade } from "@/lib/disciplinas";
+import { InfoTip } from "@/components/ui/info-tip";
+import { SubmitButton } from "@/components/ui/submit-button";
 import {
   adicionarDisciplina,
   removerDisciplina,
+  atualizarPrioridadeDisciplina,
+  atualizarLeiPrincipal,
   adicionarAssunto,
   adicionarAssuntosEmLote,
   removerAssunto,
@@ -35,6 +40,8 @@ type Disciplina = {
   nome: string;
   tipo: string;
   ordem: number;
+  prioridade: Prioridade;
+  lei_principal: string | null;
   assuntos: Assunto[];
 };
 
@@ -162,7 +169,7 @@ export default async function PlanejamentoPage() {
 
   const { data: disciplinas } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo, ordem, assuntos(id, nome, ordem, ja_estudado, parent_id)")
+    .select("id, nome, tipo, ordem, prioridade, lei_principal, assuntos(id, nome, ordem, ja_estudado, parent_id)")
     .eq("user_id", user.id)
     .order("ordem", { ascending: true })
     .returns<Disciplina[]>();
@@ -181,22 +188,68 @@ export default async function PlanejamentoPage() {
           const totalAssuntos = disciplina.assuntos.length;
           return (
             <details key={disciplina.id} className="rounded-md border border-foreground/15 p-4" open>
-              <summary className="flex cursor-pointer list-none flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <span className="font-medium text-foreground">
-                  {disciplina.nome}{" "}
-                  <span className="text-sm text-foreground/50">
-                    · {DISCIPLINA_TIPOS.find((t) => t.value === disciplina.tipo)?.label} ·{" "}
-                    {totalAssuntos} assunto(s)
+              <summary className="flex cursor-pointer list-none flex-col gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <span className="font-medium text-foreground">
+                    {disciplina.nome}{" "}
+                    <span className="text-sm text-foreground/50">
+                      · {DISCIPLINA_TIPOS.find((t) => t.value === disciplina.tipo)?.label} ·{" "}
+                      {totalAssuntos} assunto(s)
+                    </span>
                   </span>
-                </span>
-                <form action={removerDisciplina.bind(null, disciplina.id)}>
-                  <button type="submit" className="text-xs text-foreground/40 hover:text-red-600">
-                    remover disciplina
-                  </button>
-                </form>
+                  <form action={removerDisciplina.bind(null, disciplina.id)}>
+                    <button type="submit" className="text-xs text-foreground/40 hover:text-red-600">
+                      remover disciplina
+                    </button>
+                  </form>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-foreground/40">Prioridade:</span>
+                  <InfoTip texto="Prioridade alta faz o Motor de Aprendizagem escolher essa matéria com mais frequência nas sessões de estudo. Baixa não some do ciclo — só entra mais devagar." />
+                  {PRIORIDADES.map((p) => (
+                    <form key={p.valor} action={atualizarPrioridadeDisciplina.bind(null, disciplina.id, p.valor)}>
+                      <SubmitButton
+                        pendingText={p.label}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                          disciplina.prioridade === p.valor
+                            ? "border-gold bg-gold/10 text-foreground"
+                            : "border-foreground/15 text-foreground/50 hover:border-foreground/30"
+                        }`}
+                      >
+                        {p.label}
+                      </SubmitButton>
+                    </form>
+                  ))}
+                </div>
               </summary>
 
               <div className="mt-4 space-y-2">
+                {disciplina.tipo === "juridica" && (
+                  <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-foreground/40">Lei principal:</span>
+                    <InfoTip texto="Quando preenchida, a etapa de Lei Seca lê essa lei de forma contínua toda vez que essa disciplina entrar no ciclo — independente do assunto estudado no dia. Deixe em branco pra continuar perguntando a lei a cada assunto." />
+                    <form
+                      action={atualizarLeiPrincipal.bind(null, disciplina.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2"
+                    >
+                      <input
+                        name="leiPrincipal"
+                        type="text"
+                        defaultValue={disciplina.lei_principal ?? ""}
+                        placeholder="Ex: Constituição Federal"
+                        className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-xs outline-none focus:border-gold"
+                      />
+                      <SubmitButton
+                        pendingText="Salvando..."
+                        className="shrink-0 rounded-md px-3 py-1 text-xs font-medium text-foreground/70 ring-1 ring-foreground/15 hover:text-foreground hover:ring-foreground/40"
+                      >
+                        Salvar
+                      </SubmitButton>
+                    </form>
+                  </div>
+                )}
+
                 {totalAssuntos === 0 && (
                   <p className="text-sm text-foreground/50">
                     Nenhum assunto ainda — cole o edital ou o índice do livro logo abaixo pra

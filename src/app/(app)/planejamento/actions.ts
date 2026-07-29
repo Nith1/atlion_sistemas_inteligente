@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { extrairTopicos } from "@/lib/assuntos-parser";
+import { PRIORIDADES } from "@/lib/disciplinas";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -39,6 +40,24 @@ export async function adicionarDisciplina(formData: FormData) {
 export async function removerDisciplina(disciplinaId: string) {
   const { supabase } = await requireUser();
   await supabase.from("disciplinas").delete().eq("id", disciplinaId);
+  revalidatePath("/planejamento");
+}
+
+const PRIORIDADES_VALIDAS = PRIORIDADES.map((p) => p.valor);
+
+export async function atualizarPrioridadeDisciplina(disciplinaId: string, prioridade: string) {
+  const { supabase } = await requireUser();
+  if (!PRIORIDADES_VALIDAS.includes(prioridade as (typeof PRIORIDADES_VALIDAS)[number])) return;
+
+  await supabase.from("disciplinas").update({ prioridade }).eq("id", disciplinaId);
+  revalidatePath("/planejamento");
+}
+
+export async function atualizarLeiPrincipal(disciplinaId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+  const leiPrincipal = (formData.get("leiPrincipal") as string)?.trim();
+
+  await supabase.from("disciplinas").update({ lei_principal: leiPrincipal || null }).eq("id", disciplinaId);
   revalidatePath("/planejamento");
 }
 

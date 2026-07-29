@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { AuthLogo } from "@/components/auth/auth-logo";
 import { RedefinirSenhaForm } from "./redefinir-senha-form";
 
 export default async function RedefinirSenhaPage() {
@@ -14,13 +15,17 @@ export default async function RedefinirSenhaPage() {
   // ninguém.
   if (!user) redirect("/login");
 
+  const ano = new Date().getFullYear();
+
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-16">
+    <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
+        <AuthLogo />
         <h1 className="text-2xl font-semibold text-foreground">Escolher nova senha</h1>
         <p className="mt-2 text-sm text-foreground/70">Defina a nova senha da sua conta.</p>
         <RedefinirSenhaForm />
       </div>
+      <p className="mt-16 text-xs text-foreground/40">© {ano} ATLION. Todos os direitos reservados.</p>
     </main>
   );
 }

@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ajustarTempoSessao, iniciarSessao } from "../sessao/actions";
-import { AJUSTES_TEMPO, ETAPA_LABELS, MINUTOS_SUGERIDOS } from "@/lib/etapas";
+import { AJUSTES_TEMPO, ETAPA_LABELS, MINUTOS_SUGERIDOS, sessoesPrevistasHoje } from "@/lib/etapas";
 import { MinutosEtapaEditavel } from "./minutos-etapa";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 type EtapaPreview = { id: string; tipo: string; minutos_ajustados: number | null };
 
@@ -16,11 +17,23 @@ export default async function PainelPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("concurso, onboarding_completo")
+    .select("concurso, onboarding_completo, horas_liquidas_dia")
     .eq("id", user.id)
     .single();
 
   if (!profile?.onboarding_completo) redirect("/onboarding");
+
+  const inicioHoje = new Date();
+  inicioHoje.setHours(0, 0, 0, 0);
+
+  const { count: sessoesFeitasHoje } = await supabase
+    .from("sessoes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "concluida")
+    .gte("concluida_em", inicioHoje.toISOString());
+
+  const sessoesPrevisto = sessoesPrevistasHoje(profile.horas_liquidas_dia);
 
   const { data: sessaoAtual } = await supabase
     .from("sessoes")
@@ -63,6 +76,7 @@ export default async function PainelPage() {
       {temSessaoPronta && (
         <p className="mt-2 text-sm text-foreground/60">
           Sua próxima sessão já foi organizada pelo Motor de Aprendizagem.
+          {sessoesPrevisto > 1 && ` Sessão ${(sessoesFeitasHoje ?? 0) + 1} de ${sessoesPrevisto} hoje.`}
         </p>
       )}
 
@@ -95,8 +109,8 @@ export default async function PainelPage() {
             <span className="text-xs text-foreground/40">Tempo de hoje:</span>
             {AJUSTES_TEMPO.map((opcao) => (
               <form key={opcao.valor} action={ajustarTempoSessao.bind(null, sessaoAtual!.id, opcao.valor)}>
-                <button
-                  type="submit"
+                <SubmitButton
+                  pendingText={opcao.label}
                   className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
                     ajusteTempo === opcao.valor
                       ? "border-gold bg-gold/10 text-foreground"
@@ -104,28 +118,28 @@ export default async function PainelPage() {
                   }`}
                 >
                   {opcao.label}
-                </button>
+                </SubmitButton>
               </form>
             ))}
           </div>
 
           <form action={iniciarSessao} className="mt-6">
-            <button
-              type="submit"
+            <SubmitButton
+              pendingText="Preparando..."
               className="w-full rounded-md bg-gold px-8 py-4 text-base font-semibold text-navy hover:opacity-90"
             >
               Começar Sessão
-            </button>
+            </SubmitButton>
           </form>
         </div>
       ) : (
         <form action={iniciarSessao} className="mt-8">
-          <button
-            type="submit"
+          <SubmitButton
+            pendingText="Preparando..."
             className="rounded-md bg-gold px-8 py-4 text-lg font-semibold text-navy hover:opacity-90"
           >
             Estudar Agora
-          </button>
+          </SubmitButton>
         </form>
       )}
     </div>

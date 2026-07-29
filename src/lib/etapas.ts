@@ -41,6 +41,24 @@ const MINUTOS_MINIMOS: Partial<Record<string, number>> = {
   ativacao_cognitiva: 10,
 };
 
+// Duração de referência de uma sessão completa (o pipeline mais longo, o
+// jurídico: ativação 15 + estudo 50 + descanso 10 + lei seca 20 +
+// jurisprudência 20 + questões 20 = 135 min). A duração real varia com o
+// tipo de disciplina que o Motor escolher — isso é só uma régua pra estimar
+// quantas sessões inteiras cabem no tempo líquido do aluno, não um valor
+// exato por sessão.
+export const MINUTOS_SESSAO_REFERENCIA = 135;
+
+// Quantas sessões inteiras (não uma sessão só esticada) cabem no tempo
+// líquido diário do aluno — é assim que "horas líquidas por dia" (pergunta
+// já feita no onboarding) passa a influenciar o dia, sem esticar a duração
+// validada de cada etapa. Sem informação, assume 1 sessão (comportamento
+// de sempre).
+export function sessoesPrevistasHoje(horasLiquidasDia: number | null | undefined): number {
+  if (!horasLiquidasDia || horasLiquidasDia <= 0) return 1;
+  return Math.max(1, Math.round((horasLiquidasDia * 60) / MINUTOS_SESSAO_REFERENCIA));
+}
+
 export function avisoTempoBaixo(tipo: string, minutos: number): string | null {
   const minimo = MINUTOS_MINIMOS[tipo];
 

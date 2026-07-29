@@ -65,3 +65,34 @@ export function inferirTipoDisciplina(nome: string): string {
 
   return "personalizada";
 }
+
+// Prioridade da disciplina: inclina a escolha da Sessão Adaptativa (ver
+// calcularUrgencia abaixo) pra quem quer se dedicar mais a algumas matérias
+// do que a outras. "normal" em tudo = comportamento padrão, sem mudança.
+export const PRIORIDADES: { valor: "baixa" | "normal" | "alta"; label: string; multiplicador: number }[] = [
+  { valor: "baixa", label: "Baixa", multiplicador: 0.6 },
+  { valor: "normal", label: "Normal", multiplicador: 1 },
+  { valor: "alta", label: "Alta", multiplicador: 1.6 },
+];
+
+export type Prioridade = (typeof PRIORIDADES)[number]["valor"];
+
+const MULTIPLICADOR_PRIORIDADE: Record<Prioridade, number> = Object.fromEntries(
+  PRIORIDADES.map((p) => [p.valor, p.multiplicador])
+) as Record<Prioridade, number>;
+
+// Quão "atrasada" uma disciplina está: tempo desde a última vez estudada (ou
+// desde sempre, se nunca foi) multiplicado pela prioridade. É isso que decide
+// qual disciplina a Sessão Adaptativa escolhe pra hoje — entre duas igualmente
+// atrasadas, a de prioridade mais alta vence a vez primeiro; a de prioridade
+// baixa demora mais pra "vencer a vez" mesmo ficando parada por mais tempo.
+// O sistema continua decidindo sozinho: a prioridade só inclina a balança.
+export function calcularUrgencia(
+  ultimaVezEstudada: string | null,
+  prioridade: Prioridade,
+  agora: Date = new Date()
+): number {
+  const referencia = ultimaVezEstudada ? new Date(ultimaVezEstudada).getTime() : 0;
+  const decorrido = agora.getTime() - referencia;
+  return decorrido * MULTIPLICADOR_PRIORIDADE[prioridade];
+}

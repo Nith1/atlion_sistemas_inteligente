@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { formatarDuracao, calcularSequenciaDias } from "@/lib/metricas";
 import { ETAPA_LABELS } from "@/lib/etapas";
+import { calcularUrgencia, type Prioridade } from "@/lib/disciplinas";
 
 export default async function DashboardPage() {
   const supabase = await createClient();
@@ -22,7 +23,7 @@ export default async function DashboardPage() {
 
   const { data: disciplinasData } = await supabase
     .from("disciplinas")
-    .select("id, nome")
+    .select("id, nome, prioridade")
     .eq("user_id", user.id)
     .eq("ativa", true)
     .order("ordem", { ascending: true });
@@ -82,9 +83,10 @@ export default async function DashboardPage() {
     (errosData ?? []).map((erro) => `${erro.sessao_id}:${erro.assunto_id ?? "sem-assunto"}`)
   );
 
-  // mesma ordem que o Motor usa pra escolher a próxima disciplina (escolherDisciplina,
-  // em sessao/actions.ts): quem nunca foi estudada vem primeiro, depois da mais
-  // antiga pra mais recente — é literalmente o ciclo de rotação entre as matérias.
+  // mesma ordem que o Motor usa pra escolher a próxima disciplina
+  // (calcularUrgencia, em lib/disciplinas.ts — a mesma função que
+  // escolherDisciplina usa em sessao/actions.ts): quem está mais atrasada
+  // (ponderado pela prioridade dada em Planejamento) vem primeiro.
   const ultimaConclusaoPorDisciplina = new Map<string, string>();
   for (const s of [...sessoes]
     .filter((s) => s.status === "concluida" && s.concluida_em)
@@ -93,13 +95,11 @@ export default async function DashboardPage() {
       ultimaConclusaoPorDisciplina.set(s.disciplina_id, s.concluida_em as string);
     }
   }
+  const agora = new Date();
   const cicloDisciplinas = [...disciplinas].sort((a, b) => {
-    const dataA = ultimaConclusaoPorDisciplina.get(a.id);
-    const dataB = ultimaConclusaoPorDisciplina.get(b.id);
-    if (!dataA && !dataB) return 0;
-    if (!dataA) return -1;
-    if (!dataB) return 1;
-    return new Date(dataA).getTime() - new Date(dataB).getTime();
+    const urgenciaA = calcularUrgencia(ultimaConclusaoPorDisciplina.get(a.id) ?? null, a.prioridade as Prioridade, agora);
+    const urgenciaB = calcularUrgencia(ultimaConclusaoPorDisciplina.get(b.id) ?? null, b.prioridade as Prioridade, agora);
+    return urgenciaB - urgenciaA;
   });
 
   const disciplinasVisao = disciplinas.slice(0, 5).map((disciplina) => {

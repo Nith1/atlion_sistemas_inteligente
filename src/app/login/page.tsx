@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { AuthLogo } from "@/components/auth/auth-logo";
 import { LoginForm } from "./login-form";
 
 export default async function LoginPage({
@@ -16,10 +17,12 @@ export default async function LoginPage({
   if (user) redirect("/painel");
 
   const params = await searchParams;
+  const ano = new Date().getFullYear();
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-16">
+    <main className="flex flex-1 flex-col items-center justify-center px-6 py-16">
       <div className="w-full max-w-sm">
+        <AuthLogo />
         <h1 className="text-2xl font-semibold text-foreground">Entrar</h1>
         <p className="mt-2 text-sm text-foreground/70">
           Continue de onde você parou.
@@ -42,6 +45,7 @@ export default async function LoginPage({
           </Link>
         </p>
       </div>
+      <p className="mt-16 text-xs text-foreground/40">© {ano} ATLION. Todos os direitos reservados.</p>
     </main>
   );
 }

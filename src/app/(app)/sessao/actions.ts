@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_CRONOMETRO_SEGUNDOS, segundosDesdeComLimite } from "@/lib/tempo";
+import { calcularUrgencia, type Prioridade } from "@/lib/disciplinas";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -30,12 +31,15 @@ async function requireUser() {
   return { supabase, user };
 }
 
-// Escolhe a disciplina que faz mais tempo que não é estudada (ou nunca foi) —
-// é assim que o sistema decide sozinho o que estudar hoje, sem perguntar ao usuário.
+// Escolhe a disciplina que está mais "atrasada" (mais tempo sem ser
+// estudada, ponderado pela prioridade que a pessoa deu a ela em
+// Planejamento) — é assim que o sistema decide sozinho o que estudar hoje,
+// sem perguntar ao usuário. Prioridade "normal" em tudo reproduz o
+// comportamento original: puro round-robin por tempo sem estudar.
 async function escolherDisciplina(supabase: SupabaseClient, userId: string) {
   const { data: disciplinas } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo")
+    .select("id, nome, tipo, prioridade")
     .eq("user_id", userId)
     .eq("ativa", true)
     .order("ordem", { ascending: true });
@@ -56,13 +60,11 @@ async function escolherDisciplina(supabase: SupabaseClient, userId: string) {
     }
   }
 
+  const agora = new Date();
   return [...disciplinas].sort((a, b) => {
-    const dataA = ultimaSessao.get(a.id);
-    const dataB = ultimaSessao.get(b.id);
-    if (!dataA && !dataB) return 0;
-    if (!dataA) return -1;
-    if (!dataB) return 1;
-    return new Date(dataA).getTime() - new Date(dataB).getTime();
+    const urgenciaA = calcularUrgencia(ultimaSessao.get(a.id) ?? null, a.prioridade as Prioridade, agora);
+    const urgenciaB = calcularUrgencia(ultimaSessao.get(b.id) ?? null, b.prioridade as Prioridade, agora);
+    return urgenciaB - urgenciaA;
   })[0];
 }
 
@@ -313,7 +315,7 @@ export async function concluirEstudo(
   if (assuntoId) {
     await supabase
       .from("assuntos")
-      .update({ ja_estudado: true, ultima_vez_estudado: new Date().toISOString() })
+      .update({ ja_estudado: true, ultima_vez_estudado: new Date().toISOString(), progresso_estudo: null })
       .eq("id", assuntoId);
 
     // propaga o assunto estudado pras próximas etapas dessa sessão (lei seca,
@@ -329,7 +331,13 @@ export async function concluirEstudo(
   await avancarEtapa(supabase, etapaId, sessaoId, { assunto_id: assuntoId });
 }
 
-export async function concluirLeiSeca(
+// Quando o assunto não coube inteiro numa etapa de Estudo só (ex: "Poder
+// Constituinte" é longo demais): não marca ja_estudado — a mesma consulta que
+// escolhe "o próximo assunto" no Estudo (ja_estudado = false, menor ordem)
+// volta a pegar esse aqui na próxima vez que a disciplina passar pelo
+// Estudo, exatamente de onde parou. Sem precisar duplicar o assunto em
+// "parte 1 / parte 2" — o sistema decide sozinho que ainda não terminou.
+export async function continuarEstudoDepois(
   etapaId: string,
   sessaoId: string,
   assuntoId: string | null,
@@ -338,6 +346,53 @@ export async function concluirLeiSeca(
   const { supabase } = await requireUser();
 
   if (assuntoId) {
+    const progresso = (formData.get("progresso") as string)?.trim();
+
+    await supabase
+      .from("assuntos")
+      .update({ progresso_estudo: progresso || null })
+      .eq("id", assuntoId);
+
+    await supabase
+      .from("sessao_etapas")
+      .update({ assunto_id: assuntoId })
+      .eq("sessao_id", sessaoId)
+      .neq("tipo", "ativacao_cognitiva")
+      .eq("concluida", false);
+  }
+
+  await avancarEtapa(supabase, etapaId, sessaoId, { assunto_id: assuntoId });
+}
+
+export async function concluirLeiSeca(
+  etapaId: string,
+  sessaoId: string,
+  disciplinaId: string,
+  assuntoId: string | null,
+  formData: FormData
+) {
+  const { supabase } = await requireUser();
+
+  const { data: disciplina } = await supabase
+    .from("disciplinas")
+    .select("lei_principal")
+    .eq("id", disciplinaId)
+    .single();
+
+  if (disciplina?.lei_principal) {
+    // "cronograma à parte": o progresso é da disciplina, não do assunto —
+    // continua de onde parou toda vez que essa disciplina volta no ciclo,
+    // independente de qual assunto foi estudado no dia. Não tem como o
+    // sistema saber sozinho quando o aluno terminou de ler a lei inteira
+    // (é texto livre) — por isso o checkbox "reiniciar" existe.
+    const reiniciar = formData.get("reiniciar") === "on";
+    const progresso = (formData.get("progresso") as string)?.trim();
+
+    await supabase
+      .from("disciplinas")
+      .update({ progresso_lei_seca: reiniciar ? null : progresso || null })
+      .eq("id", disciplinaId);
+  } else if (assuntoId) {
     const leiReferencia = (formData.get("leiReferencia") as string)?.trim();
     const progresso = (formData.get("progresso") as string)?.trim();
 

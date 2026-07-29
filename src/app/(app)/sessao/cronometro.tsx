@@ -54,13 +54,17 @@ export function Cronometro({
   );
 }
 
-// Tempo total estudado hoje: soma o que já foi concluído (fixo) + o que a
-// etapa atual já acumulou + o tempo ao vivo dela, se estiver rodando.
-export function TempoTotalHoje({
+// Tempo acumulado num escopo qualquer (o dia inteiro, ou só a sessão atual):
+// soma o que já foi concluído (fixo) + o que a etapa atual já acumulou + o
+// tempo ao vivo dela, se estiver rodando. O escopo em si (dia vs. sessão) é
+// decidido por quem chama, via `baseSegundos` — aqui só soma e exibe.
+export function TempoAcumulado({
+  label,
   baseSegundos,
   etapaAtualAcumulado,
   iniciadaEmAtual,
 }: {
+  label: string;
   baseSegundos: number;
   etapaAtualAcumulado: number;
   iniciadaEmAtual: string | null;
@@ -71,7 +75,7 @@ export function TempoTotalHoje({
 
   return (
     <p className="text-xs text-foreground/40">
-      Tempo estudado hoje:{" "}
+      {label}:{" "}
       <span className="font-mono">{formatarTempo(baseSegundos + etapaAtualAcumulado + segundosAtual)}</span>
     </p>
   );

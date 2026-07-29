@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import {
   concluirAtivacaoCognitiva,
   concluirEstudo,
+  continuarEstudoDepois,
   concluirDescanso,
   concluirLeiSeca,
   concluirJurisprudencia,
@@ -11,7 +12,8 @@ import {
   pausarEtapa,
   retomarEtapa,
 } from "./actions";
-import { Cronometro, TempoTotalHoje } from "./cronometro";
+import { Cronometro, TempoAcumulado } from "./cronometro";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { ETAPA_LABELS, MINUTOS_SUGERIDOS, SUGERIDO_LABEL } from "@/lib/etapas";
 import { LIMITE_CRONOMETRO_SEGUNDOS } from "@/lib/tempo";
 
@@ -59,7 +61,7 @@ export default async function SessaoPage() {
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo")
+    .select("id, nome, tipo, lei_principal, progresso_lei_seca")
     .eq("id", sessao.disciplina_id)
     .single();
 
@@ -103,6 +105,14 @@ export default async function SessaoPage() {
   // o cronômetro rodando por horas antes do teto de segurança existir.
   const tempoBaseHojeSegundos = (etapasHoje ?? []).reduce(
     (soma, e) => soma + Math.min(e.tempo_gasto_segundos ?? 0, LIMITE_CRONOMETRO_SEGUNDOS),
+    0
+  );
+
+  // igual ao "hoje", mas só dessa sessão (uma disciplina) — pra quando o
+  // aluno gira o ciclo mais de uma vez no mesmo dia e quer saber quanto
+  // tempo levou só aqui, sem misturar com o total do dia inteiro.
+  const tempoBaseSessaoSegundos = etapas.reduce(
+    (soma, e) => soma + (e.concluida ? Math.min(e.tempo_gasto_segundos ?? 0, LIMITE_CRONOMETRO_SEGUNDOS) : 0),
     0
   );
 
@@ -172,12 +182,9 @@ export default async function SessaoPage() {
             ))}
           </ul>
           {camposDesempenho}
-          <button
-            type="submit"
-            className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-          >
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
             Concluí a revisão
-          </button>
+          </SubmitButton>
         </form>
       ) : (
         <form action={concluirAtivacaoCognitiva.bind(null, etapaAtual.id, sessao.id)}>
@@ -186,12 +193,9 @@ export default async function SessaoPage() {
             vamos direto pro estudo de hoje.
           </p>
           {camposDesempenho}
-          <button
-            type="submit"
-            className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-          >
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
             Continuar
-          </button>
+          </SubmitButton>
         </form>
       );
   }
@@ -199,32 +203,63 @@ export default async function SessaoPage() {
   if (etapaAtual.tipo === "estudo") {
     const { data: proximoAssunto } = await supabase
       .from("assuntos")
-      .select("id, nome")
+      .select("id, nome, progresso_estudo")
       .eq("disciplina_id", disciplina.id)
       .eq("ja_estudado", false)
       .order("ordem", { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    conteudo = (
-      <form action={concluirEstudo.bind(null, etapaAtual.id, sessao.id, proximoAssunto?.id ?? null)}>
-        {proximoAssunto ? (
-          <>
-            <p className="text-sm text-foreground/60">Estude esse assunto no seu material (curso, livro, videoaula):</p>
-            <p className="mt-2 text-xl font-semibold text-foreground">{proximoAssunto.nome}</p>
-          </>
-        ) : (
-          <p className="text-sm text-foreground/60">
-            Você já estudou todos os assuntos cadastrados dessa disciplina — hora de reforçar o
-            que já viu.
+    conteudo = proximoAssunto ? (
+      <div>
+        <p className="text-sm text-foreground/60">Estude esse assunto no seu material (curso, livro, videoaula):</p>
+        <p className="mt-2 text-xl font-semibold text-foreground">{proximoAssunto.nome}</p>
+        {proximoAssunto.progresso_estudo && (
+          <p className="mt-3 text-sm text-foreground/60">
+            Você parou em: <span className="font-medium text-foreground">{proximoAssunto.progresso_estudo}</span>.
+            Continue a partir daí.
           </p>
         )}
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-        >
-          {proximoAssunto ? "Concluí o estudo" : "Continuar"}
-        </button>
+
+        <form action={concluirEstudo.bind(null, etapaAtual.id, sessao.id, proximoAssunto.id)}>
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+            Terminei esse assunto
+          </SubmitButton>
+        </form>
+
+        <div className="mt-3 rounded-md border border-foreground/10 bg-foreground/3 p-3">
+          <p className="text-xs text-foreground/60">
+            Não deu tempo de terminar {proximoAssunto.nome}? Sem problema — ele continua aqui e volta a
+            aparecer no Estudo na próxima vez que {disciplina.nome} entrar no ciclo.
+          </p>
+          <form
+            action={continuarEstudoDepois.bind(null, etapaAtual.id, sessao.id, proximoAssunto.id)}
+            className="mt-2 flex flex-col gap-2 sm:flex-row"
+          >
+            <input
+              name="progresso"
+              type="text"
+              placeholder="Onde você parou (opcional)"
+              className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+            <SubmitButton
+              pendingText="Salvando..."
+              className="shrink-0 rounded-md px-4 py-2 text-sm font-medium text-foreground/70 ring-1 ring-foreground/20 hover:text-foreground hover:ring-foreground/40"
+            >
+              Ainda não terminei
+            </SubmitButton>
+          </form>
+        </div>
+      </div>
+    ) : (
+      <form action={concluirEstudo.bind(null, etapaAtual.id, sessao.id, null)}>
+        <p className="text-sm text-foreground/60">
+          Você já estudou todos os assuntos cadastrados dessa disciplina — hora de reforçar o
+          que já viu.
+        </p>
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+          Continuar
+        </SubmitButton>
       </form>
     );
   }
@@ -235,67 +270,108 @@ export default async function SessaoPage() {
         <p className="text-sm text-foreground/60">
           Levante, beba água, descanse a vista. Volte em alguns minutos pra continuar.
         </p>
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-        >
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
           Continuar
-        </button>
+        </SubmitButton>
       </form>
     );
   }
 
   if (etapaAtual.tipo === "lei_seca") {
-    const assunto = etapaAtual.assunto_id
-      ? (
-          await supabase
-            .from("assuntos")
-            .select("nome, lei_referencia, progresso_lei_seca")
-            .eq("id", etapaAtual.assunto_id)
-            .single()
-        ).data
-      : null;
-
-    conteudo = (
-      <form action={concluirLeiSeca.bind(null, etapaAtual.id, sessao.id, etapaAtual.assunto_id)}>
-        {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
-
-        <div className="mt-4">
-          <label className="block text-xs text-foreground/50">Qual lei</label>
-          <input
-            name="leiReferencia"
-            type="text"
-            defaultValue={assunto?.lei_referencia ?? ""}
-            placeholder="Ex: Lei nº 8.112/1990"
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-        </div>
-
-        {assunto?.progresso_lei_seca && (
-          <p className="mt-3 text-sm text-foreground/60">
-            Você parou em: <span className="font-medium text-foreground">{assunto.progresso_lei_seca}</span>. Leia a
-            partir daí.
-          </p>
-        )}
-
-        <div className="mt-4">
-          <label className="block text-xs text-foreground/50">Até onde você leu agora</label>
-          <input
-            name="progresso"
-            type="text"
-            placeholder="Ex: Art. 42"
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+    if (disciplina.lei_principal) {
+      // "cronograma à parte": lê a lei principal da disciplina de forma
+      // contínua, independente do assunto estudado no dia (ver
+      // concluirLeiSeca em sessao/actions.ts).
+      conteudo = (
+        <form
+          action={concluirLeiSeca.bind(null, etapaAtual.id, sessao.id, disciplina.id, etapaAtual.assunto_id)}
         >
-          Concluir
-        </button>
-      </form>
-    );
+          <p className="text-sm text-foreground/60">Leia:</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{disciplina.lei_principal}</p>
+
+          <p className="mt-3 text-sm text-foreground/60">
+            {disciplina.progresso_lei_seca ? (
+              <>
+                Você parou em:{" "}
+                <span className="font-medium text-foreground">{disciplina.progresso_lei_seca}</span>. Continue a
+                partir daí.
+              </>
+            ) : (
+              "Primeira leitura — comece do início."
+            )}
+          </p>
+
+          <div className="mt-4">
+            <label className="block text-xs text-foreground/50">Até onde você leu agora</label>
+            <input
+              name="progresso"
+              type="text"
+              placeholder="Ex: Art. 42"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+          </div>
+
+          <label className="mt-3 flex items-center gap-2 text-sm text-foreground/70">
+            <input name="reiniciar" type="checkbox" className="h-4 w-4 rounded border-foreground/30" />
+            Terminei de ler tudo — recomeçar do início
+          </label>
+
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+            Concluir
+          </SubmitButton>
+        </form>
+      );
+    } else {
+      const assunto = etapaAtual.assunto_id
+        ? (
+            await supabase
+              .from("assuntos")
+              .select("nome, lei_referencia, progresso_lei_seca")
+              .eq("id", etapaAtual.assunto_id)
+              .single()
+          ).data
+        : null;
+
+      conteudo = (
+        <form
+          action={concluirLeiSeca.bind(null, etapaAtual.id, sessao.id, disciplina.id, etapaAtual.assunto_id)}
+        >
+          {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
+
+          <div className="mt-4">
+            <label className="block text-xs text-foreground/50">Qual lei</label>
+            <input
+              name="leiReferencia"
+              type="text"
+              defaultValue={assunto?.lei_referencia ?? ""}
+              placeholder="Ex: Lei nº 8.112/1990"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+          </div>
+
+          {assunto?.progresso_lei_seca && (
+            <p className="mt-3 text-sm text-foreground/60">
+              Você parou em: <span className="font-medium text-foreground">{assunto.progresso_lei_seca}</span>. Leia a
+              partir daí.
+            </p>
+          )}
+
+          <div className="mt-4">
+            <label className="block text-xs text-foreground/50">Até onde você leu agora</label>
+            <input
+              name="progresso"
+              type="text"
+              placeholder="Ex: Art. 42"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+          </div>
+
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+            Concluir
+          </SubmitButton>
+        </form>
+      );
+    }
   }
 
   if (etapaAtual.tipo === "jurisprudencia") {
@@ -342,12 +418,9 @@ export default async function SessaoPage() {
           />
         </div>
 
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-        >
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
           Concluir
-        </button>
+        </SubmitButton>
       </form>
     );
   }
@@ -361,12 +434,9 @@ export default async function SessaoPage() {
       <form action={concluirConsolidacao.bind(null, etapaAtual.id, sessao.id)}>
         <p className="text-sm text-foreground/60">{CONSOLIDACAO_INSTRUCAO[etapaAtual.tipo]}</p>
         {assunto && <p className="mt-2 text-xl font-semibold text-foreground">{assunto.nome}</p>}
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-        >
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
           Concluir
-        </button>
+        </SubmitButton>
       </form>
     );
   }
@@ -424,12 +494,9 @@ export default async function SessaoPage() {
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
         </div>
-        <button
-          type="submit"
-          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-        >
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
           Concluir sessão
-        </button>
+        </SubmitButton>
       </form>
     );
   }
@@ -443,11 +510,20 @@ export default async function SessaoPage() {
             style={{ width: `${((etapaIndex + 1) / etapas.length) * 100}%` }}
           />
         </div>
-        <TempoTotalHoje
-          baseSegundos={tempoBaseHojeSegundos}
-          etapaAtualAcumulado={acumuladoEtapaAtual}
-          iniciadaEmAtual={etapaAtual.iniciada_em}
-        />
+        <div className="flex flex-wrap items-center gap-x-3">
+          <TempoAcumulado
+            label="Tempo estudado hoje"
+            baseSegundos={tempoBaseHojeSegundos}
+            etapaAtualAcumulado={acumuladoEtapaAtual}
+            iniciadaEmAtual={etapaAtual.iniciada_em}
+          />
+          <TempoAcumulado
+            label="Nesta sessão"
+            baseSegundos={tempoBaseSessaoSegundos}
+            etapaAtualAcumulado={acumuladoEtapaAtual}
+            iniciadaEmAtual={etapaAtual.iniciada_em}
+          />
+        </div>
 
         <div className="mt-7 flex items-center justify-between">
           <div>
@@ -476,30 +552,28 @@ export default async function SessaoPage() {
             />
             {etapaAtual.iniciada_em ? (
               <form action={pausarEtapa.bind(null, etapaAtual.id)}>
-                <button
-                  type="submit"
-                  title="Pausar"
-                  aria-label="Pausar cronômetro"
-                  className="rounded-full p-1.5 text-foreground/50 ring-1 ring-foreground/10 hover:text-foreground hover:ring-foreground/30"
+                <SubmitButton
+                  pendingText="Pausando..."
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium text-foreground/60 ring-1 ring-foreground/15 hover:text-foreground hover:ring-foreground/30"
                 >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="currentColor">
                     <rect x="3" y="2" width="3" height="10" />
                     <rect x="8" y="2" width="3" height="10" />
                   </svg>
-                </button>
+                  Pausar
+                </SubmitButton>
               </form>
             ) : (
               <form action={retomarEtapa.bind(null, etapaAtual.id)}>
-                <button
-                  type="submit"
-                  title="Retomar"
-                  aria-label="Retomar cronômetro"
-                  className="rounded-full p-1.5 text-foreground/50 ring-1 ring-foreground/10 hover:text-foreground hover:ring-foreground/30"
+                <SubmitButton
+                  pendingText="Retomando..."
+                  className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-gold/10 px-3 py-1.5 text-xs font-medium text-foreground ring-1 ring-gold/40 hover:bg-gold/20"
                 >
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="currentColor">
                     <path d="M3 2 L12 7 L3 12 Z" />
                   </svg>
-                </button>
+                  Continuar de onde parei
+                </SubmitButton>
               </form>
             )}
           </div>

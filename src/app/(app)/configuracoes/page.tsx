@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { cancelarConta, resetarTudo, salvarConfiguracoes } from "./actions";
 import { ConfirmButton } from "./confirm-button";
 import { TrocarSenhaForm } from "./trocar-senha-form";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 const ATIVACAO_MODOS = [
   { value: "questoes", label: "Questões" },
@@ -103,12 +104,12 @@ export default async function ConfiguracoesPage() {
           </select>
         </div>
 
-        <button
-          type="submit"
+        <SubmitButton
+          pendingText="Salvando..."
           className="rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
         >
           Salvar
-        </button>
+        </SubmitButton>
       </form>
 
       <div className="mt-12 border-t border-foreground/10 pt-8">
