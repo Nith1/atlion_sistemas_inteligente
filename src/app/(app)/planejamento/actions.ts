@@ -61,6 +61,17 @@ export async function atualizarLeiPrincipal(disciplinaId: string, formData: Form
   revalidatePath("/planejamento");
 }
 
+export async function atualizarJurisprudenciaPrincipal(disciplinaId: string, formData: FormData) {
+  const { supabase } = await requireUser();
+  const jurisprudenciaPrincipal = (formData.get("jurisprudenciaPrincipal") as string)?.trim();
+
+  await supabase
+    .from("disciplinas")
+    .update({ jurisprudencia_principal: jurisprudenciaPrincipal || null })
+    .eq("id", disciplinaId);
+  revalidatePath("/planejamento");
+}
+
 export async function adicionarAssunto(disciplinaId: string, formData: FormData) {
   const nome = (formData.get("nome") as string)?.trim();
   if (!nome) return;
@@ -112,6 +123,35 @@ export async function adicionarAssuntosEmLote(disciplinaId: string, formData: Fo
   });
 
   await supabase.from("assuntos").insert(linhas);
+  revalidatePath("/planejamento");
+}
+
+// Clique num chip de assunto sugerido (ver src/lib/assuntos-sugeridos.ts):
+// adiciona se ainda não existe, remove se já foi adicionado — mesmo toggle
+// do onboarding, só que aqui cada clique já grava direto (Planejamento não
+// tem um rascunho local antes de persistir).
+export async function alternarSugestaoAssunto(disciplinaId: string, nome: string) {
+  const { supabase } = await requireUser();
+
+  const { data: existente } = await supabase
+    .from("assuntos")
+    .select("id")
+    .eq("disciplina_id", disciplinaId)
+    .is("parent_id", null)
+    .ilike("nome", nome)
+    .maybeSingle();
+
+  if (existente) {
+    await supabase.from("assuntos").delete().eq("id", existente.id);
+  } else {
+    const { count } = await supabase
+      .from("assuntos")
+      .select("id", { count: "exact", head: true })
+      .eq("disciplina_id", disciplinaId);
+
+    await supabase.from("assuntos").insert({ disciplina_id: disciplinaId, nome, ordem: count ?? 0 });
+  }
+
   revalidatePath("/planejamento");
 }
 

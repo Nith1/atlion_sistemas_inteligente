@@ -53,6 +53,9 @@ export function MotorVisual() {
   const [textoIndex, setTextoIndex] = useState(0);
 
   useEffect(() => {
+    // roda o ciclo uma vez só e assenta em "sessao" (card pronto) — sem
+    // isso o loop infinito fica competindo com a leitura do texto ao lado.
+    if (fase === "sessao") return;
     const id = setTimeout(() => setFase((f) => PROXIMA_FASE[f]), DURACOES[fase]);
     return () => clearTimeout(id);
   }, [fase]);

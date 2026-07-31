@@ -7,6 +7,7 @@ export const ETAPA_LABELS: Record<string, string> = {
   exercicios: "Exercícios",
   laboratorio: "Laboratório",
   questoes: "Questões",
+  revisao_erros: "Revisão de Erros",
 };
 
 // Duração sugerida por etapa — método validado do Atlion, não é estimativa.
@@ -19,6 +20,7 @@ export const MINUTOS_SUGERIDOS: Record<string, number> = {
   exercicios: 20,
   laboratorio: 20,
   questoes: 20,
+  revisao_erros: 10,
 };
 
 export const SUGERIDO_LABEL: Partial<Record<string, string>> = {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PRIORIDADES, type Prioridade } from "@/lib/disciplinas";
+import { ASSUNTOS_SUGERIDOS } from "@/lib/assuntos-sugeridos";
 import { InfoTip } from "@/components/ui/info-tip";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
@@ -9,8 +10,10 @@ import {
   removerDisciplina,
   atualizarPrioridadeDisciplina,
   atualizarLeiPrincipal,
+  atualizarJurisprudenciaPrincipal,
   adicionarAssunto,
   adicionarAssuntosEmLote,
+  alternarSugestaoAssunto,
   removerAssunto,
   removerTodosAssuntos,
   alternarEstudado,
@@ -42,6 +45,7 @@ type Disciplina = {
   ordem: number;
   prioridade: Prioridade;
   lei_principal: string | null;
+  jurisprudencia_principal: string | null;
   assuntos: Assunto[];
 };
 
@@ -169,7 +173,9 @@ export default async function PlanejamentoPage() {
 
   const { data: disciplinas } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo, ordem, prioridade, lei_principal, assuntos(id, nome, ordem, ja_estudado, parent_id)")
+    .select(
+      "id, nome, tipo, ordem, prioridade, lei_principal, jurisprudencia_principal, assuntos(id, nome, ordem, ja_estudado, parent_id)"
+    )
     .eq("user_id", user.id)
     .order("ordem", { ascending: true })
     .returns<Disciplina[]>();
@@ -186,6 +192,7 @@ export default async function PlanejamentoPage() {
       <div className="space-y-4">
         {(disciplinas ?? []).map((disciplina) => {
           const totalAssuntos = disciplina.assuntos.length;
+          const sugestoesBase = ASSUNTOS_SUGERIDOS[disciplina.nome] ?? [];
           return (
             <details key={disciplina.id} className="rounded-md border border-foreground/15 p-4" open>
               <summary className="flex cursor-pointer list-none flex-col gap-3">
@@ -250,9 +257,35 @@ export default async function PlanejamentoPage() {
                   </div>
                 )}
 
+                {disciplina.tipo === "juridica" && (
+                  <div className="mb-4 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-foreground/40">Jurisprudência principal:</span>
+                    <InfoTip texto="Quando preenchida, a etapa de Jurisprudência lê essa referência de forma contínua toda vez que essa disciplina entrar no ciclo — independente do assunto estudado no dia. Deixe em branco pra continuar perguntando a jurisprudência a cada assunto." />
+                    <form
+                      action={atualizarJurisprudenciaPrincipal.bind(null, disciplina.id)}
+                      className="flex min-w-0 flex-1 items-center gap-2"
+                    >
+                      <input
+                        name="jurisprudenciaPrincipal"
+                        type="text"
+                        defaultValue={disciplina.jurisprudencia_principal ?? ""}
+                        placeholder="Ex: Súmulas do STJ e STF"
+                        className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-xs outline-none focus:border-gold"
+                      />
+                      <SubmitButton
+                        pendingText="Salvando..."
+                        className="shrink-0 rounded-md px-3 py-1 text-xs font-medium text-foreground/70 ring-1 ring-foreground/15 hover:text-foreground hover:ring-foreground/40"
+                      >
+                        Salvar
+                      </SubmitButton>
+                    </form>
+                  </div>
+                )}
+
                 {totalAssuntos === 0 && (
                   <p className="text-sm text-foreground/50">
-                    Nenhum assunto ainda — cole o edital ou o índice do livro logo abaixo pra
+                    Nenhum assunto ainda — cole o edital ou o índice do livro logo abaixo
+                    {sugestoesBase.length > 0 ? ", ou escolha um dos assuntos sugeridos" : ""} pra
                     começar rápido.
                   </p>
                 )}
@@ -291,6 +324,36 @@ export default async function PlanejamentoPage() {
                     Adicionar assunto
                   </button>
                 </form>
+
+                {sugestoesBase.length > 0 && (
+                  <details className="pt-1" open={totalAssuntos === 0}>
+                    <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
+                      ver assuntos sugeridos
+                    </summary>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {sugestoesBase.map((nome) => {
+                        const selecionado = disciplina.assuntos.some(
+                          (a) => a.parent_id === null && a.nome.toLowerCase() === nome.toLowerCase()
+                        );
+                        return (
+                          <form key={nome} action={alternarSugestaoAssunto.bind(null, disciplina.id, nome)}>
+                            <button
+                              type="submit"
+                              className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                                selecionado
+                                  ? "border-gold bg-gold/10 text-foreground"
+                                  : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                              }`}
+                            >
+                              {selecionado && "✓ "}
+                              {nome}
+                            </button>
+                          </form>
+                        );
+                      })}
+                    </div>
+                  </details>
+                )}
 
                 <details className="pt-1" open={totalAssuntos === 0}>
                   <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">

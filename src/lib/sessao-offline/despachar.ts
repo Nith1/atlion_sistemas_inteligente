@@ -9,6 +9,9 @@ import {
   concluirJurisprudencia,
   concluirLeiSeca,
   concluirQuestoes,
+  concluirQuestoesConsolidacao,
+  concluirQuestoesValidacao,
+  concluirRevisaoErros,
   continuarEstudoDepois,
   pausarEtapa,
   retomarEtapa,
@@ -75,8 +78,9 @@ export function despacharMutacao(mutacao: MutacaoPendente): Promise<void> {
       const formData = new FormData();
       formData.set("referencia", mutacao.referencia);
       formData.set("progresso", mutacao.progresso);
+      if (mutacao.reiniciar) formData.set("reiniciar", "on");
       return rodarNaTransicao(() =>
-        concluirJurisprudencia(mutacao.etapaId, mutacao.sessaoId, mutacao.assuntoId, formData)
+        concluirJurisprudencia(mutacao.etapaId, mutacao.sessaoId, mutacao.disciplinaId, mutacao.assuntoId, formData)
       );
     }
 
@@ -90,6 +94,39 @@ export function despacharMutacao(mutacao: MutacaoPendente): Promise<void> {
       formData.set("anotacao", mutacao.anotacao);
       return rodarNaTransicao(() =>
         concluirQuestoes(mutacao.etapaId, mutacao.sessaoId, mutacao.disciplinaId, mutacao.assuntoId, formData)
+      );
+    }
+
+    case "concluirRevisaoErros":
+      return rodarNaTransicao(() =>
+        concluirRevisaoErros(mutacao.etapaId, mutacao.sessaoId, mutacao.disciplinaId)
+      );
+
+    case "concluirQuestoesConsolidacao": {
+      const formData = new FormData();
+      mutacao.respostas.forEach((r) => {
+        formData.append("assuntoId", r.assuntoId);
+        formData.set(`certas_${r.assuntoId}`, String(r.certas));
+        formData.set(`erradas_${r.assuntoId}`, String(r.erradas));
+      });
+      formData.set("anotacao", mutacao.anotacao);
+      if (mutacao.anki !== null) formData.set("anki", mutacao.anki ? "on" : "");
+      return rodarNaTransicao(() =>
+        concluirQuestoesConsolidacao(mutacao.etapaId, mutacao.sessaoId, mutacao.disciplinaId, formData)
+      );
+    }
+
+    case "concluirQuestoesValidacao": {
+      const formData = new FormData();
+      mutacao.respostas.forEach((r) => {
+        formData.append("assuntoId", r.assuntoId);
+        formData.set(`certas_${r.assuntoId}`, String(r.certas));
+        formData.set(`erradas_${r.assuntoId}`, String(r.erradas));
+      });
+      formData.set("anotacao", mutacao.anotacao);
+      if (mutacao.anki !== null) formData.set("anki", mutacao.anki ? "on" : "");
+      return rodarNaTransicao(() =>
+        concluirQuestoesValidacao(mutacao.etapaId, mutacao.sessaoId, mutacao.disciplinaId, formData)
       );
     }
   }

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_CRONOMETRO_SEGUNDOS } from "@/lib/tempo";
+import { JANELA_ATIVACAO_TAMANHO, type Peso } from "@/lib/janela-ativacao";
 import { SessaoRuntime } from "./sessao-runtime";
 import type { SessaoBundle } from "@/lib/sessao-offline/tipos";
 
@@ -35,7 +36,7 @@ export default async function SessaoPage() {
 
   const { data: sessao } = await supabase
     .from("sessoes")
-    .select("id, disciplina_id, ajuste_tempo")
+    .select("id, disciplina_id, ajuste_tempo, tipo")
     .eq("user_id", user.id)
     .eq("status", "em_andamento")
     .maybeSingle();
@@ -44,7 +45,7 @@ export default async function SessaoPage() {
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo, lei_principal, progresso_lei_seca")
+    .select("id, nome, tipo, lei_principal, progresso_lei_seca, jurisprudencia_principal, progresso_jurisprudencia")
     .eq("id", sessao.disciplina_id)
     .single();
 
@@ -87,18 +88,25 @@ export default async function SessaoPage() {
   // Prefetch de tudo que a sessão pode vir a precisar — não só a etapa
   // atual — pra continuar funcionando sem nenhuma leitura nova ao servidor
   // se a internet cair no meio (ver src/lib/sessao-offline).
-  const ativacaoPendente = !etapas.find((e) => e.tipo === "ativacao_cognitiva")?.concluida;
+  const ativacaoPendente = etapas.some((e) => e.tipo === "ativacao_cognitiva" && !e.concluida);
+  // Janela móvel: os N assuntos mais recentemente introduzidos (ordem desc
+  // entre os já estudados — ver src/lib/janela-ativacao.ts), não os mais
+  // "atrasados" como antes.
   const { data: candidatosAtivacao } = ativacaoPendente
     ? await supabase
         .from("assuntos")
         .select("id, nome")
         .eq("disciplina_id", disciplina.id)
         .eq("ja_estudado", true)
-        .order("ultima_vez_estudado", { ascending: true, nullsFirst: true })
-        .limit(5)
+        .order("ordem", { ascending: false })
+        .limit(JANELA_ATIVACAO_TAMANHO)
     : { data: [] as { id: string; nome: string }[] };
 
-  const precisaDeAssunto = etapas.some((e) => TIPOS_QUE_USAM_ASSUNTO.includes(e.tipo) && !e.concluida);
+  // "Assunto do dia" só existe em sessão normal — numa Sessão de
+  // Consolidação não há conteúdo novo, então a etapa "questoes" usa
+  // assuntosConsolidacao (múltiplos assuntos com peso) em vez disso.
+  const precisaDeAssunto =
+    sessao.tipo === "normal" && etapas.some((e) => TIPOS_QUE_USAM_ASSUNTO.includes(e.tipo) && !e.concluida);
   let assuntoSelecionado: SessaoBundle["assuntoSelecionado"] = null;
 
   if (precisaDeAssunto) {
@@ -128,12 +136,107 @@ export default async function SessaoPage() {
       : null;
   }
 
+  // Consolidação/Validação: a etapa "questoes" cobre vários assuntos com
+  // peso (ver sessao_etapa_assuntos, populado por criarPipelineConsolidacao
+  // em src/lib/janela-ativacao.ts ou por criarPipelineValidacao em
+  // src/lib/simulado.ts — a única diferença é qual coluna de peso vem
+  // preenchida, peso categórico ou peso_percentual).
+  const questoesRevisaoGlobalPendente =
+    (sessao.tipo === "consolidacao" || sessao.tipo === "validacao") &&
+    etapas.some((e) => e.tipo === "questoes" && !e.concluida);
+  let assuntosRevisaoGlobal: SessaoBundle["assuntosRevisaoGlobal"] = [];
+
+  if (questoesRevisaoGlobalPendente) {
+    const etapaQuestoes = etapas.find((e) => e.tipo === "questoes");
+
+    const { data: pesos } = etapaQuestoes
+      ? await supabase
+          .from("sessao_etapa_assuntos")
+          .select("assunto_id, peso, peso_percentual")
+          .eq("etapa_id", etapaQuestoes.id)
+      : { data: [] as { assunto_id: string; peso: string | null; peso_percentual: number | null }[] };
+
+    const assuntoIdsRevisao = (pesos ?? []).map((p) => p.assunto_id);
+    const { data: assuntosData } =
+      assuntoIdsRevisao.length > 0
+        ? await supabase.from("assuntos").select(CAMPOS_ASSUNTO).in("id", assuntoIdsRevisao)
+        : { data: [] as { id: string; nome: string; lei_referencia: string | null; progresso_lei_seca: string | null; jurisprudencia_referencia: string | null; progresso_jurisprudencia: string | null }[] };
+
+    const assuntoPorId = new Map((assuntosData ?? []).map((a) => [a.id, a]));
+
+    assuntosRevisaoGlobal = (pesos ?? [])
+      .map((p) => {
+        const a = assuntoPorId.get(p.assunto_id);
+        if (!a) return null;
+        return {
+          id: a.id,
+          nome: a.nome,
+          peso: p.peso as Peso | null,
+          pesoPercentual: p.peso_percentual,
+          leiReferencia: a.lei_referencia,
+          progressoLeiSeca: a.progresso_lei_seca,
+          jurisprudenciaReferencia: a.jurisprudencia_referencia,
+          progressoJurisprudencia: a.progresso_jurisprudencia,
+        };
+      })
+      .filter((a): a is NonNullable<typeof a> => a !== null);
+  }
+
+  // Consolidação/Validação: revisão do Caderno de Erros da disciplina
+  // inteira, agrupada por assunto (mesmo padrão de caderno-erros/page.tsx,
+  // sem filtro de sessão — aqui é a disciplina toda de uma vez).
+  const revisaoErrosPendente =
+    (sessao.tipo === "consolidacao" || sessao.tipo === "validacao") &&
+    etapas.some((e) => e.tipo === "revisao_erros" && !e.concluida);
+  let errosPendentesConsolidacao: SessaoBundle["errosPendentesConsolidacao"] = [];
+
+  if (revisaoErrosPendente) {
+    const { data: errosData } = await supabase
+      .from("questoes_registro")
+      .select("assunto_id, anotacao")
+      .eq("user_id", user.id)
+      .eq("disciplina_id", disciplina.id)
+      .eq("acertou", false)
+      .eq("revisado", false);
+
+    const assuntoIdsErros = [
+      ...new Set((errosData ?? []).map((e) => e.assunto_id).filter((id): id is string => !!id)),
+    ];
+    const { data: assuntosErrosData } =
+      assuntoIdsErros.length > 0
+        ? await supabase.from("assuntos").select("id, nome").in("id", assuntoIdsErros)
+        : { data: [] as { id: string; nome: string }[] };
+    const nomePorAssuntoId = new Map((assuntosErrosData ?? []).map((a) => [a.id, a.nome]));
+
+    const grupos = new Map<string, SessaoBundle["errosPendentesConsolidacao"][number]>();
+    for (const erro of errosData ?? []) {
+      const chave = erro.assunto_id ?? "sem-assunto";
+      const existente = grupos.get(chave);
+      if (existente) {
+        existente.quantidade += 1;
+        existente.anotacao = existente.anotacao ?? erro.anotacao;
+      } else {
+        grupos.set(chave, {
+          assuntoId: erro.assunto_id,
+          assuntoNome: erro.assunto_id ? (nomePorAssuntoId.get(erro.assunto_id) ?? null) : null,
+          quantidade: 1,
+          anotacao: erro.anotacao,
+        });
+      }
+    }
+    errosPendentesConsolidacao = [...grupos.values()];
+  }
+
   const bundle: SessaoBundle = {
     sessaoId: sessao.id,
+    sessaoTipo:
+      sessao.tipo === "consolidacao" ? "consolidacao" : sessao.tipo === "validacao" ? "validacao" : "normal",
     disciplinaId: disciplina.id,
     disciplinaNome: disciplina.nome,
     leiPrincipal: disciplina.lei_principal,
     progressoLeiSecaDisciplina: disciplina.progresso_lei_seca,
+    jurisprudenciaPrincipal: disciplina.jurisprudencia_principal,
+    progressoJurisprudenciaDisciplina: disciplina.progresso_jurisprudencia,
     ajusteTempo: sessao.ajuste_tempo ?? 1,
     ativacaoModo: profile?.ativacao_modo ?? "questoes",
     etapas: etapas.map((e) => ({
@@ -149,6 +252,8 @@ export default async function SessaoPage() {
     })),
     candidatosAtivacao: candidatosAtivacao ?? [],
     assuntoSelecionado,
+    assuntosRevisaoGlobal,
+    errosPendentesConsolidacao,
     tempoBaseHojeSegundos,
   };
 

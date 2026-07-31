@@ -137,6 +137,70 @@ describe("aplicarMutacaoLocal", () => {
     expect(novo.etapas.find((e) => !e.concluida)).toBeUndefined();
   });
 
+  it("concluirRevisaoErros marca a etapa concluída sem mexer em assuntoId", () => {
+    const estado = estadoBase([
+      etapa({ id: "e1", tipo: "revisao_erros", ordem: 0, iniciadaEm: new Date().toISOString() }),
+      etapa({ id: "e2", tipo: "questoes", ordem: 1 }),
+    ]);
+    const mutacao: MutacaoPendente = {
+      id: "m1",
+      criadaEm: new Date().toISOString(),
+      tipo: "concluirRevisaoErros",
+      etapaId: "e1",
+      sessaoId: "sessao-1",
+      disciplinaId: "d1",
+    };
+    const novo = aplicarMutacaoLocal(estado, mutacao);
+
+    expect(novo.etapas[0].concluida).toBe(true);
+    expect(novo.etapas[0].assuntoId).toBeNull();
+    expect(novo.etapas[1].iniciadaEm).not.toBeNull(); // liga a próxima
+  });
+
+  it("concluirQuestoesConsolidacao marca a etapa concluída sem carregar assuntoId singular (cobre vários)", () => {
+    const estado = estadoBase([etapa({ id: "e1", tipo: "questoes", ordem: 0, iniciadaEm: new Date().toISOString() })]);
+    const mutacao: MutacaoPendente = {
+      id: "m1",
+      criadaEm: new Date().toISOString(),
+      tipo: "concluirQuestoesConsolidacao",
+      etapaId: "e1",
+      sessaoId: "sessao-1",
+      disciplinaId: "d1",
+      respostas: [
+        { assuntoId: "assunto-1", certas: 3, erradas: 1 },
+        { assuntoId: "assunto-2", certas: 2, erradas: 0 },
+      ],
+      anotacao: "",
+      anki: null,
+    };
+    const novo = aplicarMutacaoLocal(estado, mutacao);
+
+    expect(novo.etapas[0].concluida).toBe(true);
+    expect(novo.etapas[0].assuntoId).toBeNull();
+  });
+
+  it("concluirQuestoesValidacao marca a etapa concluída sem carregar assuntoId singular (cobre todos os assuntos)", () => {
+    const estado = estadoBase([etapa({ id: "e1", tipo: "questoes", ordem: 0, iniciadaEm: new Date().toISOString() })]);
+    const mutacao: MutacaoPendente = {
+      id: "m1",
+      criadaEm: new Date().toISOString(),
+      tipo: "concluirQuestoesValidacao",
+      etapaId: "e1",
+      sessaoId: "sessao-1",
+      disciplinaId: "d1",
+      respostas: [
+        { assuntoId: "assunto-1", certas: 4, erradas: 1 },
+        { assuntoId: "assunto-2", certas: 1, erradas: 3 },
+      ],
+      anotacao: "",
+      anki: null,
+    };
+    const novo = aplicarMutacaoLocal(estado, mutacao);
+
+    expect(novo.etapas[0].concluida).toBe(true);
+    expect(novo.etapas[0].assuntoId).toBeNull();
+  });
+
   it("pausarEtapa e retomarEtapa acumulam e retomam o relógio sem duplicar tempo se chamado quando já pausada", () => {
     const inicio = new Date("2026-01-01T10:00:00.000Z");
     const agora = new Date("2026-01-01T10:01:00.000Z");

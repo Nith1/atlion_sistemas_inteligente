@@ -39,6 +39,9 @@ export function DorVisual() {
   const [fase, setFase] = useState<Fase>("vazio");
 
   useEffect(() => {
+    // roda o ciclo uma vez só e assenta em "card" (a decisão resolvida) —
+    // sem isso o loop infinito fica competindo com a leitura do texto ao lado.
+    if (fase === "card") return;
     const id = setTimeout(() => setFase((f) => PROXIMA_FASE[f]), DURACOES[fase]);
     return () => clearTimeout(id);
   }, [fase]);

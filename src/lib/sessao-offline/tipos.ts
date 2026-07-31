@@ -23,20 +23,50 @@ export type AssuntoSelecionado = {
   progressoJurisprudencia: string | null;
 };
 
+// Assunto dentro da etapa "questoes" de uma Sessão de Consolidação ou de
+// Validação (Simulado) — ver sessao_etapa_assuntos em
+// src/lib/janela-ativacao.ts (Consolidação, peso por tier) e
+// src/lib/simulado.ts (Validação, peso percentual por taxa de erro). Uma
+// linha nunca tem os dois pesos preenchidos ao mesmo tempo.
+export type AssuntoRevisaoGlobal = {
+  id: string;
+  nome: string;
+  peso: "alta" | "media" | "baixa" | null;
+  pesoPercentual: number | null;
+  leiReferencia: string | null;
+  progressoLeiSeca: string | null;
+  jurisprudenciaReferencia: string | null;
+  progressoJurisprudencia: string | null;
+};
+
+// Um grupo de erros pendentes (não revisados) da disciplina, agrupado por
+// assunto — mesma forma que caderno-erros/page.tsx usa, sem filtro de sessão.
+export type ErroPendenteConsolidacao = {
+  assuntoId: string | null;
+  assuntoNome: string | null;
+  quantidade: number;
+  anotacao: string | null;
+};
+
 // Tudo que a sessão inteira pode vir a precisar, buscado de uma vez em
 // page.tsx enquanto ainda há rede — depois disso nenhuma etapa depende de
 // uma nova leitura do servidor pra continuar avançando.
 export type SessaoBundle = {
   sessaoId: string;
+  sessaoTipo: "normal" | "consolidacao" | "validacao";
   disciplinaId: string;
   disciplinaNome: string;
   leiPrincipal: string | null;
   progressoLeiSecaDisciplina: string | null;
+  jurisprudenciaPrincipal: string | null;
+  progressoJurisprudenciaDisciplina: string | null;
   ajusteTempo: number;
   ativacaoModo: string;
   etapas: EtapaLocal[];
   candidatosAtivacao: { id: string; nome: string }[];
   assuntoSelecionado: AssuntoSelecionado | null;
+  assuntosRevisaoGlobal: AssuntoRevisaoGlobal[];
+  errosPendentesConsolidacao: ErroPendenteConsolidacao[];
   tempoBaseHojeSegundos: number;
 };
 
@@ -91,9 +121,12 @@ export type MutacaoPendente =
       tipo: "concluirJurisprudencia";
       etapaId: string;
       sessaoId: string;
+      disciplinaId: string;
       assuntoId: string | null;
-      referencia: string;
+      usaJurisprudenciaPrincipal: boolean;
       progresso: string;
+      referencia: string;
+      reiniciar: boolean;
     }
   | { id: string; criadaEm: string; tipo: "concluirConsolidacao"; etapaId: string; sessaoId: string }
   | {
@@ -107,6 +140,36 @@ export type MutacaoPendente =
       certas: number;
       erradas: number;
       anotacao: string;
+    }
+  | {
+      id: string;
+      criadaEm: string;
+      tipo: "concluirRevisaoErros";
+      etapaId: string;
+      sessaoId: string;
+      disciplinaId: string;
+    }
+  | {
+      id: string;
+      criadaEm: string;
+      tipo: "concluirQuestoesConsolidacao";
+      etapaId: string;
+      sessaoId: string;
+      disciplinaId: string;
+      respostas: { assuntoId: string; certas: number; erradas: number }[];
+      anotacao: string;
+      anki: boolean | null;
+    }
+  | {
+      id: string;
+      criadaEm: string;
+      tipo: "concluirQuestoesValidacao";
+      etapaId: string;
+      sessaoId: string;
+      disciplinaId: string;
+      respostas: { assuntoId: string; certas: number; erradas: number }[];
+      anotacao: string;
+      anki: boolean | null;
     };
 
 // Omit comum não distribui sobre union types (colapsa MutacaoPendente numa
@@ -124,6 +187,7 @@ export type SessaoLocalState = {
   etapas: EtapaLocal[];
   assuntoSelecionado: AssuntoSelecionado | null;
   progressoLeiSecaDisciplina: string | null;
+  progressoJurisprudenciaDisciplina: string | null;
   fila: MutacaoPendente[];
   atualizadoEm: string;
 };

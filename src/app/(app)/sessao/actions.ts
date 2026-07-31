@@ -5,6 +5,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_CRONOMETRO_SEGUNDOS, segundosDesdeComLimite } from "@/lib/tempo";
 import { calcularUrgencia, type Prioridade } from "@/lib/disciplinas";
+import { criarPipelineConsolidacao, deveSerConsolidacao } from "@/lib/janela-ativacao";
+import { criarPipelineValidacao, decidirConsequenciasSimulado } from "@/lib/simulado";
 
 type SupabaseClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -50,7 +52,7 @@ async function etapaJaConcluida(supabase: SupabaseClient, etapaId: string): Prom
 async function escolherDisciplina(supabase: SupabaseClient, userId: string) {
   const { data: disciplinas } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo, prioridade")
+    .select("id, nome, tipo, prioridade, assuntos_desde_consolidacao, em_validacao")
     .eq("user_id", userId)
     .eq("ativa", true)
     .order("ordem", { ascending: true });
@@ -195,17 +197,34 @@ export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId
   const disciplina = await escolherDisciplina(supabase, userId);
   if (!disciplina) return null;
 
+  // Enquanto a disciplina estiver em modo de Validação, toda sessão dela é
+  // um Simulado — nem chega a checar deveSerConsolidacao (ver
+  // src/lib/janela-ativacao.ts, que fica intocado: essa função nunca
+  // precisa saber que Validação existe).
+  const ehValidacao = disciplina.em_validacao;
+  const ehConsolidacao =
+    !ehValidacao &&
+    (await deveSerConsolidacao(supabase, disciplina.id, disciplina.assuntos_desde_consolidacao));
+
+  const tipo = ehValidacao ? "validacao" : ehConsolidacao ? "consolidacao" : "normal";
+
   const { data: sessao } = await supabase
     .from("sessoes")
-    .insert({ user_id: userId, disciplina_id: disciplina.id })
+    .insert({ user_id: userId, disciplina_id: disciplina.id, tipo })
     .select("id")
     .single();
 
   if (sessao) {
-    const tipos = ETAPAS_POR_TIPO[disciplina.tipo] ?? ETAPAS_POR_TIPO.personalizada;
-    await supabase.from("sessao_etapas").insert(
-      tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
-    );
+    if (ehValidacao) {
+      await criarPipelineValidacao(supabase, sessao.id, disciplina.id);
+    } else if (ehConsolidacao) {
+      await criarPipelineConsolidacao(supabase, sessao.id, disciplina.id, disciplina.assuntos_desde_consolidacao);
+    } else {
+      const tipos = ETAPAS_POR_TIPO[disciplina.tipo] ?? ETAPAS_POR_TIPO.personalizada;
+      await supabase.from("sessao_etapas").insert(
+        tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
+      );
+    }
   }
 
   return sessao?.id ?? null;
@@ -328,10 +347,32 @@ export async function concluirEstudo(
   if (await etapaJaConcluida(supabase, etapaId)) return;
 
   if (assuntoId) {
+    const { data: assuntoAntes } = await supabase
+      .from("assuntos")
+      .select("ja_estudado, disciplina_id")
+      .eq("id", assuntoId)
+      .single();
+
     await supabase
       .from("assuntos")
       .update({ ja_estudado: true, ultima_vez_estudado: new Date().toISOString(), progresso_estudo: null })
       .eq("id", assuntoId);
+
+    // Conta pro gatilho da próxima Sessão de Consolidação (ver
+    // src/lib/janela-ativacao.ts) só numa transição real ja_estudado
+    // false→true — reabrir "Ainda não terminei" depois não conta de novo.
+    if (assuntoAntes && !assuntoAntes.ja_estudado) {
+      const { data: disciplina } = await supabase
+        .from("disciplinas")
+        .select("assuntos_desde_consolidacao")
+        .eq("id", assuntoAntes.disciplina_id)
+        .single();
+
+      await supabase
+        .from("disciplinas")
+        .update({ assuntos_desde_consolidacao: (disciplina?.assuntos_desde_consolidacao ?? 0) + 1 })
+        .eq("id", assuntoAntes.disciplina_id);
+    }
 
     // propaga o assunto estudado pras próximas etapas dessa sessão (lei seca,
     // exercícios, questões...), que ainda não foram concluídas
@@ -405,10 +446,16 @@ export async function concluirLeiSeca(
     const reiniciar = formData.get("reiniciar") === "on";
     const progresso = (formData.get("progresso") as string)?.trim();
 
-    await supabase
-      .from("disciplinas")
-      .update({ progresso_lei_seca: reiniciar ? null : progresso || null })
-      .eq("id", disciplinaId);
+    // "Até onde você leu agora" é opcional — deixar em branco significa "não
+    // tenho nada novo pra atualizar hoje", não "apague o que eu já tinha
+    // salvo". Só grava progresso_lei_seca quando reiniciar foi marcado
+    // (reset intencional) ou quando um valor novo foi digitado; sem isso,
+    // todo envio em branco apagava silenciosamente o progresso anterior.
+    if (reiniciar) {
+      await supabase.from("disciplinas").update({ progresso_lei_seca: null }).eq("id", disciplinaId);
+    } else if (progresso) {
+      await supabase.from("disciplinas").update({ progresso_lei_seca: progresso }).eq("id", disciplinaId);
+    }
   } else if (assuntoId) {
     const leiReferencia = (formData.get("leiReferencia") as string)?.trim();
     const progresso = (formData.get("progresso") as string)?.trim();
@@ -428,13 +475,33 @@ export async function concluirLeiSeca(
 export async function concluirJurisprudencia(
   etapaId: string,
   sessaoId: string,
+  disciplinaId: string,
   assuntoId: string | null,
   formData: FormData
 ) {
   const { supabase } = await requireUser();
   if (await etapaJaConcluida(supabase, etapaId)) return;
 
-  if (assuntoId) {
+  const { data: disciplina } = await supabase
+    .from("disciplinas")
+    .select("jurisprudencia_principal")
+    .eq("id", disciplinaId)
+    .single();
+
+  if (disciplina?.jurisprudencia_principal) {
+    // "cronograma à parte", espelhando lei_principal: o progresso é da
+    // disciplina, não do assunto — continua de onde parou toda vez que essa
+    // disciplina volta no ciclo, independente de qual assunto foi estudado
+    // no dia.
+    const reiniciar = formData.get("reiniciar") === "on";
+    const progresso = (formData.get("progresso") as string)?.trim();
+
+    if (reiniciar) {
+      await supabase.from("disciplinas").update({ progresso_jurisprudencia: null }).eq("id", disciplinaId);
+    } else if (progresso) {
+      await supabase.from("disciplinas").update({ progresso_jurisprudencia: progresso }).eq("id", disciplinaId);
+    }
+  } else if (assuntoId) {
     const referencia = (formData.get("referencia") as string)?.trim();
     const progresso = (formData.get("progresso") as string)?.trim();
 
@@ -498,4 +565,162 @@ export async function concluirQuestoes(
   // src/lib/sessao-offline/despachar.ts), e só o client sabe o momento
   // certo de navegar — depois de mostrar "sessão concluída" e confirmar que
   // sincronizou. Ver sessao-runtime.tsx.
+}
+
+// Etapa própria da Sessão de Consolidação: marca como revisada toda a leva
+// de erros pendentes da disciplina (mesmo campo `revisado` que o Caderno de
+// Erros usa — ver alternarRevisado em caderno-erros/actions.ts — só que em
+// lote pra disciplina inteira em vez de um grupo sessão+assunto só).
+export async function concluirRevisaoErros(etapaId: string, sessaoId: string, disciplinaId: string) {
+  const { supabase, user } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
+
+  await supabase
+    .from("questoes_registro")
+    .update({ revisado: true })
+    .eq("user_id", user.id)
+    .eq("disciplina_id", disciplinaId)
+    .eq("acertou", false)
+    .eq("revisado", false);
+
+  await avancarEtapa(supabase, etapaId, sessaoId);
+}
+
+// Etapa "Questões" de uma Sessão de Consolidação: igual concluirQuestoes,
+// mas com certas/erradas por assunto (um por linha de sessao_etapa_assuntos)
+// em vez de um assuntoId só — ver bundle.assuntosConsolidacao em page.tsx.
+export async function concluirQuestoesConsolidacao(
+  etapaId: string,
+  sessaoId: string,
+  disciplinaId: string,
+  formData: FormData
+) {
+  const { supabase, user } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
+
+  const assuntoIds = formData.getAll("assuntoId") as string[];
+  const anotacaoErros = (formData.get("anotacao") as string)?.trim() || null;
+
+  const registros = assuntoIds.flatMap((id) => {
+    const certas = Math.max(0, Number(formData.get(`certas_${id}`) ?? 0));
+    const erradas = Math.max(0, Number(formData.get(`erradas_${id}`) ?? 0));
+
+    return [
+      ...Array(certas).fill({ acertou: true, anotacao: null }),
+      ...Array(erradas).fill({ acertou: false, anotacao: erradas > 0 ? anotacaoErros : null }),
+    ].map(({ acertou, anotacao }: { acertou: boolean; anotacao: string | null }) => ({
+      user_id: user.id,
+      disciplina_id: disciplinaId,
+      assunto_id: id,
+      sessao_id: sessaoId,
+      acertou,
+      anotacao,
+    }));
+  });
+
+  if (registros.length > 0) {
+    await supabase.from("questoes_registro").insert(registros);
+  }
+
+  await avancarEtapa(supabase, etapaId, sessaoId, {
+    ativacao_anki: formData.has("anki") ? formData.get("anki") === "on" : null,
+  });
+
+  const { count: restantes } = await supabase
+    .from("assuntos")
+    .select("id", { count: "exact", head: true })
+    .eq("disciplina_id", disciplinaId)
+    .eq("ja_estudado", false);
+
+  // Fecha a janela: a próxima sessão dessa disciplina volta a ser normal,
+  // recomeçando a contagem pro gatilho da próxima Consolidação — a menos
+  // que não sobre mais nenhum assunto novo, caso em que a disciplina entra
+  // em modo de Validação (Simulado por disciplina — ver src/lib/simulado.ts)
+  // em vez de voltar a "normal".
+  await supabase
+    .from("disciplinas")
+    .update({ assuntos_desde_consolidacao: 0, em_validacao: (restantes ?? 0) === 0 })
+    .eq("id", disciplinaId);
+
+  await supabase
+    .from("sessoes")
+    .update({ status: "concluida", concluida_em: new Date().toISOString() })
+    .eq("id", sessaoId);
+}
+
+// Etapa "Questões" de uma Sessão de Validação (Simulado por disciplina):
+// igual concluirQuestoesConsolidacao, mas cobre TODOS os assuntos recebidos
+// (não filtra por tier — ver bundle.assuntosRevisaoGlobal em page.tsx) e, ao
+// final, aplica o loop de feedback (ver decidirConsequenciasSimulado em
+// src/lib/simulado.ts): desempenho ruim num assunto pode reabrir o Estudo
+// dele ou tirar a disciplina de Validação por mais uma Consolidação.
+export async function concluirQuestoesValidacao(
+  etapaId: string,
+  sessaoId: string,
+  disciplinaId: string,
+  formData: FormData
+) {
+  const { supabase, user } = await requireUser();
+  if (await etapaJaConcluida(supabase, etapaId)) return;
+
+  const assuntoIds = formData.getAll("assuntoId") as string[];
+  const anotacaoErros = (formData.get("anotacao") as string)?.trim() || null;
+
+  const porAssunto = assuntoIds.map((id) => ({
+    id,
+    certas: Math.max(0, Number(formData.get(`certas_${id}`) ?? 0)),
+    erradas: Math.max(0, Number(formData.get(`erradas_${id}`) ?? 0)),
+  }));
+
+  const registros = porAssunto.flatMap(({ id, certas, erradas }) =>
+    [
+      ...Array(certas).fill({ acertou: true, anotacao: null }),
+      ...Array(erradas).fill({ acertou: false, anotacao: erradas > 0 ? anotacaoErros : null }),
+    ].map(({ acertou, anotacao }: { acertou: boolean; anotacao: string | null }) => ({
+      user_id: user.id,
+      disciplina_id: disciplinaId,
+      assunto_id: id,
+      sessao_id: sessaoId,
+      acertou,
+      anotacao,
+    }))
+  );
+
+  if (registros.length > 0) {
+    await supabase.from("questoes_registro").insert(registros);
+  }
+
+  // só assuntos com pelo menos 1 questão registrada nesse envio entram na
+  // classificação de gravidade — senão um assunto deixado em branco
+  // contaria como taxaErro=0 (leve) por engano.
+  const resultados = porAssunto
+    .filter(({ certas, erradas }) => certas + erradas > 0)
+    .map(({ id, certas, erradas }) => ({ assuntoId: id, taxaErro: erradas / (certas + erradas) }));
+
+  const consequencias = decidirConsequenciasSimulado(resultados);
+
+  if (consequencias.assuntosParaReestudar.length > 0) {
+    await supabase.from("assuntos").update({ ja_estudado: false }).in("id", consequencias.assuntosParaReestudar);
+  }
+
+  if (consequencias.disciplina) {
+    await supabase
+      .from("disciplinas")
+      .update({
+        em_validacao: consequencias.disciplina.emValidacao,
+        ...(consequencias.disciplina.assuntosDesdeConsolidacao !== undefined
+          ? { assuntos_desde_consolidacao: consequencias.disciplina.assuntosDesdeConsolidacao }
+          : {}),
+      })
+      .eq("id", disciplinaId);
+  }
+
+  await avancarEtapa(supabase, etapaId, sessaoId, {
+    ativacao_anki: formData.has("anki") ? formData.get("anki") === "on" : null,
+  });
+
+  await supabase
+    .from("sessoes")
+    .update({ status: "concluida", concluida_em: new Date().toISOString() })
+    .eq("id", sessaoId);
 }

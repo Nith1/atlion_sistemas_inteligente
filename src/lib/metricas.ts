@@ -33,3 +33,27 @@ export function calcularSequenciaDias(datasConcluidas: Date[]): number {
   }
   return sequencia;
 }
+
+// Taxa de erro por assunto a partir de registros já buscados — pura, sem
+// chamada ao Supabase, no mesmo estilo das funções acima. Alimenta o peso
+// do Simulado (ver src/lib/simulado.ts).
+export function calcularTaxaErroPorAssunto(
+  registros: { assunto_id: string | null; acertou: boolean }[]
+): Map<string, number> {
+  const contagem = new Map<string, { certas: number; erradas: number }>();
+
+  for (const registro of registros) {
+    if (!registro.assunto_id) continue;
+    const atual = contagem.get(registro.assunto_id) ?? { certas: 0, erradas: 0 };
+    if (registro.acertou) atual.certas += 1;
+    else atual.erradas += 1;
+    contagem.set(registro.assunto_id, atual);
+  }
+
+  const taxas = new Map<string, number>();
+  for (const [assuntoId, { certas, erradas }] of contagem) {
+    const total = certas + erradas;
+    taxas.set(assuntoId, total > 0 ? erradas / total : 0);
+  }
+  return taxas;
+}

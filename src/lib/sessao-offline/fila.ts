@@ -72,6 +72,7 @@ export function aplicarMutacaoLocal(
     case "concluirAtivacaoCognitiva":
     case "concluirDescanso":
     case "concluirConsolidacao":
+    case "concluirRevisaoErros":
       return concluirEtapaLocal(estado, mutacao.etapaId, undefined, agoraMs);
 
     case "concluirEstudo": {
@@ -116,9 +117,14 @@ export function aplicarMutacaoLocal(
     }
 
     case "concluirJurisprudencia": {
+      let progressoJurisprudenciaDisciplina = estado.progressoJurisprudenciaDisciplina;
       let assuntoSelecionado = estado.assuntoSelecionado;
 
-      if (mutacao.assuntoId && assuntoSelecionado?.id === mutacao.assuntoId) {
+      if (mutacao.usaJurisprudenciaPrincipal) {
+        progressoJurisprudenciaDisciplina = mutacao.reiniciar
+          ? null
+          : mutacao.progresso.trim() || progressoJurisprudenciaDisciplina;
+      } else if (mutacao.assuntoId && assuntoSelecionado?.id === mutacao.assuntoId) {
         assuntoSelecionado = {
           ...assuntoSelecionado,
           ...(mutacao.referencia.trim() ? { jurisprudenciaReferencia: mutacao.referencia.trim() } : {}),
@@ -126,11 +132,22 @@ export function aplicarMutacaoLocal(
         };
       }
 
-      return concluirEtapaLocal({ ...estado, assuntoSelecionado }, mutacao.etapaId, undefined, agoraMs);
+      return concluirEtapaLocal(
+        { ...estado, progressoJurisprudenciaDisciplina, assuntoSelecionado },
+        mutacao.etapaId,
+        undefined,
+        agoraMs
+      );
     }
 
     case "concluirQuestoes":
       return concluirEtapaLocal(estado, mutacao.etapaId, mutacao.assuntoId, agoraMs);
+
+    case "concluirQuestoesConsolidacao":
+    case "concluirQuestoesValidacao":
+      // etapa "questoes" de uma Consolidação/Validação nunca carrega um
+      // assunto_id singular (cobre vários, via sessao_etapa_assuntos).
+      return concluirEtapaLocal(estado, mutacao.etapaId, null, agoraMs);
   }
 }
 

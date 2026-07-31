@@ -36,12 +36,7 @@ export function Experiencia() {
   return (
     <section className="mx-auto max-w-6xl px-6 py-28 sm:py-36">
       <ScrollReveal>
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-[#C8A15A]">
-          A experiência
-        </p>
-      </ScrollReveal>
-      <ScrollReveal delayMs={80}>
-        <h2 className="mx-auto mt-5 max-w-lg text-center text-3xl font-semibold tracking-tight text-[#F5F3EF] sm:text-4xl md:text-5xl">
+        <h2 className="mx-auto max-w-lg text-center text-3xl font-semibold tracking-tight text-[#F5F3EF] sm:text-4xl md:text-5xl">
           A interface real. Sem mockup.
         </h2>
       </ScrollReveal>

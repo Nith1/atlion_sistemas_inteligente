@@ -34,6 +34,7 @@ function estadoDeBundle(bundle: SessaoBundle): SessaoLocalState {
     etapas: bundle.etapas,
     assuntoSelecionado: bundle.assuntoSelecionado,
     progressoLeiSecaDisciplina: bundle.progressoLeiSecaDisciplina,
+    progressoJurisprudenciaDisciplina: bundle.progressoJurisprudenciaDisciplina,
     fila: [],
     atualizadoEm: new Date().toISOString(),
   };
@@ -68,7 +69,11 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
         estadoRef.current = novoEstado;
         setEstado(novoEstado);
         salvarEstado(novoEstado);
-        if (mutacaoSincronizada.tipo === "concluirQuestoes") {
+        if (
+          mutacaoSincronizada.tipo === "concluirQuestoes" ||
+          mutacaoSincronizada.tipo === "concluirQuestoesConsolidacao" ||
+          mutacaoSincronizada.tipo === "concluirQuestoesValidacao"
+        ) {
           limparEstado(bundle.sessaoId);
           router.push("/painel");
         }
@@ -197,9 +202,12 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       tipo: "concluirJurisprudencia",
       etapaId: etapaAtual.id,
       sessaoId: bundle.sessaoId,
+      disciplinaId: bundle.disciplinaId,
       assuntoId: etapaAtual.assuntoId,
+      usaJurisprudenciaPrincipal: !!bundle.jurisprudenciaPrincipal,
       referencia: ((formData.get("referencia") as string) ?? "").trim(),
       progresso: ((formData.get("progresso") as string) ?? "").trim(),
+      reiniciar: formData.get("reiniciar") === "on",
     });
   }
 
@@ -220,6 +228,54 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       certas: Math.max(0, Number(formData.get("certas") ?? 0)),
       erradas,
       anotacao: erradas > 0 ? ((formData.get("anotacao") as string) ?? "").trim() : "",
+    });
+  }
+
+  async function aoConcluirRevisaoErros() {
+    if (!etapaAtual) return;
+    enfileirarEEmSincronizar({
+      tipo: "concluirRevisaoErros",
+      etapaId: etapaAtual.id,
+      sessaoId: bundle.sessaoId,
+      disciplinaId: bundle.disciplinaId,
+    });
+  }
+
+  async function aoConcluirQuestoesConsolidacao(formData: FormData) {
+    if (!etapaAtual) return;
+    const respostas = bundle.assuntosRevisaoGlobal
+      .filter((assunto) => assunto.peso !== "baixa")
+      .map((assunto) => ({
+        assuntoId: assunto.id,
+        certas: Math.max(0, Number(formData.get(`certas_${assunto.id}`) ?? 0)),
+        erradas: Math.max(0, Number(formData.get(`erradas_${assunto.id}`) ?? 0)),
+      }));
+    enfileirarEEmSincronizar({
+      tipo: "concluirQuestoesConsolidacao",
+      etapaId: etapaAtual.id,
+      sessaoId: bundle.sessaoId,
+      disciplinaId: bundle.disciplinaId,
+      respostas,
+      anotacao: ((formData.get("anotacao") as string) ?? "").trim(),
+      anki: formData.has("anki") ? formData.get("anki") === "on" : null,
+    });
+  }
+
+  async function aoConcluirQuestoesValidacao(formData: FormData) {
+    if (!etapaAtual) return;
+    const respostas = bundle.assuntosRevisaoGlobal.map((assunto) => ({
+      assuntoId: assunto.id,
+      certas: Math.max(0, Number(formData.get(`certas_${assunto.id}`) ?? 0)),
+      erradas: Math.max(0, Number(formData.get(`erradas_${assunto.id}`) ?? 0)),
+    }));
+    enfileirarEEmSincronizar({
+      tipo: "concluirQuestoesValidacao",
+      etapaId: etapaAtual.id,
+      sessaoId: bundle.sessaoId,
+      disciplinaId: bundle.disciplinaId,
+      respostas,
+      anotacao: ((formData.get("anotacao") as string) ?? "").trim(),
+      anki: formData.has("anki") ? formData.get("anki") === "on" : null,
     });
   }
 
@@ -316,13 +372,12 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
         </form>
       ) : (
         <form action={aoConcluirAtivacaoCognitiva}>
-          <p className="text-sm text-foreground/60">
-            Ainda não há assuntos estudados nessa disciplina pra reforçar. Sem problema —
-            vamos direto pro estudo de hoje.
+          <p className="text-base font-medium text-foreground">Primeira vez em {bundle.disciplinaNome}.</p>
+          <p className="mt-2 text-sm text-foreground/60">
+            Ainda não há nada estudado aqui pra revisar — vamos direto pro conteúdo novo.
           </p>
-          {camposDesempenho}
           <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
-            Continuar
+            Começar
           </SubmitButton>
         </form>
       );
@@ -478,46 +533,86 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
   }
 
   if (etapaAtual.tipo === "jurisprudencia") {
-    const assunto = estado.assuntoSelecionado;
+    if (bundle.jurisprudenciaPrincipal) {
+      conteudo = (
+        <form action={aoConcluirJurisprudencia}>
+          <p className="text-sm text-foreground/60">Revise:</p>
+          <p className="mt-1 text-xl font-semibold text-foreground">{bundle.jurisprudenciaPrincipal}</p>
 
-    conteudo = (
-      <form action={aoConcluirJurisprudencia}>
-        {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
-
-        <div className="mt-4">
-          <label className="block text-xs text-foreground/50">Qual jurisprudência/tema</label>
-          <input
-            name="referencia"
-            type="text"
-            defaultValue={assunto?.jurisprudenciaReferencia ?? ""}
-            placeholder="Ex: STF, controle de constitucionalidade"
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-        </div>
-
-        {assunto?.progressoJurisprudencia && (
           <p className="mt-3 text-sm text-foreground/60">
-            Você parou em:{" "}
-            <span className="font-medium text-foreground">{assunto.progressoJurisprudencia}</span>. Continue a
-            partir daí.
+            {estado.progressoJurisprudenciaDisciplina ? (
+              <>
+                Você parou em:{" "}
+                <span className="font-medium text-foreground">{estado.progressoJurisprudenciaDisciplina}</span>.
+                Continue a partir daí.
+              </>
+            ) : (
+              "Primeira revisão — comece do início."
+            )}
           </p>
-        )}
 
-        <div className="mt-4">
-          <label className="block text-xs text-foreground/50">Até onde você revisou agora</label>
-          <input
-            name="progresso"
-            type="text"
-            placeholder="Ex: Súmulas do STJ até 2023"
-            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-        </div>
+          <div className="mt-4">
+            <label className="block text-xs text-foreground/50">Até onde você revisou agora</label>
+            <input
+              name="progresso"
+              type="text"
+              placeholder="Ex: Súmulas do STJ até 2023"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+          </div>
 
-        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
-          Concluir
-        </SubmitButton>
-      </form>
-    );
+          <label className="mt-3 flex items-center gap-2 text-sm text-foreground/70">
+            <input name="reiniciar" type="checkbox" className="h-4 w-4 rounded border-foreground/30" />
+            Terminei de revisar tudo — recomeçar do início
+          </label>
+
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+            Concluir
+          </SubmitButton>
+        </form>
+      );
+    } else {
+      const assunto = estado.assuntoSelecionado;
+
+      conteudo = (
+        <form action={aoConcluirJurisprudencia}>
+          {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
+
+          <div className="mt-4">
+            <label className="block text-xs text-foreground/50">Qual jurisprudência/tema</label>
+            <input
+              name="referencia"
+              type="text"
+              defaultValue={assunto?.jurisprudenciaReferencia ?? ""}
+              placeholder="Ex: STF, controle de constitucionalidade"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+          </div>
+
+          {assunto?.progressoJurisprudencia && (
+            <p className="mt-3 text-sm text-foreground/60">
+              Você parou em:{" "}
+              <span className="font-medium text-foreground">{assunto.progressoJurisprudencia}</span>. Continue a
+              partir daí.
+            </p>
+          )}
+
+          <div className="mt-4">
+            <label className="block text-xs text-foreground/50">Até onde você revisou agora</label>
+            <input
+              name="progresso"
+              type="text"
+              placeholder="Ex: Súmulas do STJ até 2023"
+              className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+          </div>
+
+          <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+            Concluir
+          </SubmitButton>
+        </form>
+      );
+    }
   }
 
   if (etapaAtual.tipo === "exercicios" || etapaAtual.tipo === "laboratorio") {
@@ -534,7 +629,178 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     );
   }
 
-  if (etapaAtual.tipo === "questoes") {
+  if (etapaAtual.tipo === "revisao_erros") {
+    const erros = bundle.errosPendentesConsolidacao;
+
+    conteudo = (
+      <form action={aoConcluirRevisaoErros}>
+        {erros.length > 0 ? (
+          <>
+            <p className="text-sm text-foreground/60">Erros pendentes de revisão nessa disciplina:</p>
+            <ul className="mt-4 space-y-2">
+              {erros.map((erro) => (
+                <li
+                  key={erro.assuntoId ?? "sem-assunto"}
+                  className="rounded-md border border-foreground/10 bg-foreground/3 px-3 py-2 text-sm"
+                >
+                  <p className="text-foreground">
+                    {erro.assuntoNome ?? "Sem assunto"} · {erro.quantidade}{" "}
+                    {erro.quantidade === 1 ? "erro" : "erros"}
+                  </p>
+                  {erro.anotacao && <p className="mt-1 text-xs text-foreground/60">{erro.anotacao}</p>}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="text-sm text-foreground/60">Nenhum erro pendente — bom trabalho.</p>
+        )}
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+          Concluir
+        </SubmitButton>
+      </form>
+    );
+  }
+
+  if (etapaAtual.tipo === "questoes" && (bundle.sessaoTipo === "consolidacao" || bundle.sessaoTipo === "validacao")) {
+    const ehValidacao = bundle.sessaoTipo === "validacao";
+    const assuntos = bundle.assuntosRevisaoGlobal;
+    const comInput = ehValidacao ? assuntos : assuntos.filter((a) => a.peso === "alta" || a.peso === "media");
+    const somenteLeitura = ehValidacao ? [] : assuntos.filter((a) => a.peso === "baixa");
+    const mostrarAnki = bundle.ativacaoModo === "anki" || bundle.ativacaoModo === "questoes_anki";
+
+    conteudo = (
+      <form action={ehValidacao ? aoConcluirQuestoesValidacao : aoConcluirQuestoesConsolidacao}>
+        <p className="text-sm text-foreground/60">
+          {ehValidacao
+            ? "Simulado da disciplina — resolva questões cobrindo todos os assuntos e registre o resultado:"
+            : "Revisão global da disciplina — resolva questões e registre o resultado por assunto:"}
+        </p>
+
+        {bundle.leiPrincipal && (
+          <div className="mt-4 rounded-md border border-foreground/10 bg-foreground/3 p-3">
+            <p className="text-xs text-foreground/50">Lei</p>
+            <p className="text-sm font-medium text-foreground">{bundle.leiPrincipal}</p>
+            {bundle.progressoLeiSecaDisciplina && (
+              <p className="mt-1 text-xs text-foreground/60">
+                Você parou em: {bundle.progressoLeiSecaDisciplina}
+              </p>
+            )}
+          </div>
+        )}
+
+        {bundle.jurisprudenciaPrincipal && (
+          <div className="mt-4 rounded-md border border-foreground/10 bg-foreground/3 p-3">
+            <p className="text-xs text-foreground/50">Jurisprudência</p>
+            <p className="text-sm font-medium text-foreground">{bundle.jurisprudenciaPrincipal}</p>
+            {bundle.progressoJurisprudenciaDisciplina && (
+              <p className="mt-1 text-xs text-foreground/60">
+                Você parou em: {bundle.progressoJurisprudenciaDisciplina}
+              </p>
+            )}
+          </div>
+        )}
+
+        {comInput.length > 0 ? (
+          <div className="mt-4 space-y-4">
+            {comInput.map((assunto) => (
+              <div key={assunto.id} className="rounded-md border border-foreground/10 bg-foreground/3 p-3">
+                <p className="text-sm font-medium text-foreground">
+                  {assunto.nome}
+                  {ehValidacao && assunto.pesoPercentual != null && (
+                    <span className="ml-2 text-xs font-normal text-foreground/50">
+                      {assunto.pesoPercentual}% sugerido
+                    </span>
+                  )}
+                </p>
+                {!bundle.leiPrincipal && assunto.leiReferencia && (
+                  <p className="mt-1 text-xs text-foreground/60">Lei: {assunto.leiReferencia}</p>
+                )}
+                {!bundle.leiPrincipal && assunto.progressoLeiSeca && (
+                  <p className="mt-1 text-xs text-foreground/60">
+                    Você parou em: <span className="text-foreground/80">{assunto.progressoLeiSeca}</span>
+                  </p>
+                )}
+                {!bundle.jurisprudenciaPrincipal && assunto.jurisprudenciaReferencia && (
+                  <p className="mt-1 text-xs text-foreground/60">
+                    Jurisprudência: {assunto.jurisprudenciaReferencia}
+                  </p>
+                )}
+                {!bundle.jurisprudenciaPrincipal && assunto.progressoJurisprudencia && (
+                  <p className="mt-1 text-xs text-foreground/60">
+                    Você parou em: <span className="text-foreground/80">{assunto.progressoJurisprudencia}</span>
+                  </p>
+                )}
+                <input type="hidden" name="assuntoId" value={assunto.id} />
+                <div className="mt-2 flex gap-3">
+                  <div className="flex-1">
+                    <label className="block text-xs text-foreground/50">Acertos</label>
+                    <input
+                      name={`certas_${assunto.id}`}
+                      type="number"
+                      min={0}
+                      defaultValue={0}
+                      className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs text-foreground/50">Erros</label>
+                    <input
+                      name={`erradas_${assunto.id}`}
+                      type="number"
+                      min={0}
+                      defaultValue={0}
+                      className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-foreground/60">
+            Nenhum assunto pra revisar nessa disciplina ainda.
+          </p>
+        )}
+
+        {somenteLeitura.length > 0 && (
+          <div className="mt-6">
+            <p className="text-xs text-foreground/50">Também vale revisar quando puder:</p>
+            <ul className="mt-2 space-y-1">
+              {somenteLeitura.map((assunto) => (
+                <li key={assunto.id} className="text-sm text-foreground/60">
+                  {assunto.nome}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="mt-4">
+          <label className="block text-xs text-foreground/50">Se errou algo, o que vale revisar depois</label>
+          <textarea
+            name="anotacao"
+            rows={5}
+            placeholder="Ex: confundi prazo de recurso com o de prescrição"
+            className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+          />
+        </div>
+
+        {mostrarAnki && (
+          <label className="mt-3 flex items-center gap-2 text-sm text-foreground/70">
+            <input name="anki" type="checkbox" className="h-4 w-4 rounded border-foreground/30" />
+            Revisei no Anki hoje
+          </label>
+        )}
+
+        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+          Concluir sessão
+        </SubmitButton>
+      </form>
+    );
+  }
+
+  if (etapaAtual.tipo === "questoes" && bundle.sessaoTipo === "normal") {
     const assunto = estado.assuntoSelecionado;
 
     conteudo = (
@@ -572,7 +838,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           <label className="block text-xs text-foreground/50">Se errou algo, o que vale revisar depois</label>
           <textarea
             name="anotacao"
-            rows={2}
+            rows={5}
             placeholder="Ex: confundi prazo de recurso com o de prescrição"
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
@@ -612,12 +878,17 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
         <div className="mt-7 flex items-center justify-between">
           <div>
-            <p className="text-sm text-foreground/50">
-              {bundle.disciplinaNome} · etapa {etapaIndex + 1} de {estado.etapas.length}
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-gold">{bundle.disciplinaNome}</p>
             <h1 className="mt-1 text-xl font-semibold text-foreground">
-              {ETAPA_LABELS[etapaAtual.tipo] ?? etapaAtual.tipo}
+              {etapaAtual.tipo === "questoes" && bundle.sessaoTipo === "consolidacao"
+                ? "Revisão e Questões"
+                : etapaAtual.tipo === "questoes" && bundle.sessaoTipo === "validacao"
+                  ? "Simulado da Disciplina"
+                  : (ETAPA_LABELS[etapaAtual.tipo] ?? etapaAtual.tipo)}
             </h1>
+            <p className="mt-1 text-xs text-foreground/40">
+              etapa {etapaIndex + 1} de {estado.etapas.length}
+            </p>
           </div>
           <div className="flex items-center gap-3">
             <Cronometro
@@ -625,9 +896,12 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
               iniciadaEm={etapaAtual.iniciadaEm}
               sugeridoMinutos={
                 etapaAtual.minutosAjustados ??
-                (MINUTOS_SUGERIDOS[etapaAtual.tipo] !== undefined
-                  ? Math.round(MINUTOS_SUGERIDOS[etapaAtual.tipo] * bundle.ajusteTempo)
-                  : undefined)
+                (etapaAtual.tipo === "questoes" &&
+                (bundle.sessaoTipo === "consolidacao" || bundle.sessaoTipo === "validacao")
+                  ? Math.round(30 * bundle.ajusteTempo)
+                  : MINUTOS_SUGERIDOS[etapaAtual.tipo] !== undefined
+                    ? Math.round(MINUTOS_SUGERIDOS[etapaAtual.tipo] * bundle.ajusteTempo)
+                    : undefined)
               }
               sugeridoLabel={
                 bundle.ajusteTempo === 1 && etapaAtual.minutosAjustados === null
