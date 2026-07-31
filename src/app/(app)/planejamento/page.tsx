@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { PRIORIDADES, type Prioridade } from "@/lib/disciplinas";
 import { ASSUNTOS_SUGERIDOS } from "@/lib/assuntos-sugeridos";
+import { JURISPRUDENCIA_SUGERIDA, LEIS_SUGERIDAS } from "@/lib/leis-sugeridas";
 import { InfoTip } from "@/components/ui/info-tip";
 import { SubmitButton } from "@/components/ui/submit-button";
 import {
@@ -254,6 +255,25 @@ export default async function PlanejamentoPage() {
                         Salvar
                       </SubmitButton>
                     </form>
+                    {(LEIS_SUGERIDAS[disciplina.nome] ?? []).map((nome) => {
+                      const selecionada = disciplina.lei_principal === nome;
+                      return (
+                        <form key={nome} action={atualizarLeiPrincipal.bind(null, disciplina.id)}>
+                          <input type="hidden" name="leiPrincipal" value={selecionada ? "" : nome} />
+                          <button
+                            type="submit"
+                            className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                              selecionada
+                                ? "border-gold bg-gold/10 text-foreground"
+                                : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                            }`}
+                          >
+                            {selecionada && "✓ "}
+                            {nome}
+                          </button>
+                        </form>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -279,6 +299,25 @@ export default async function PlanejamentoPage() {
                         Salvar
                       </SubmitButton>
                     </form>
+                    {JURISPRUDENCIA_SUGERIDA.map((nome) => {
+                      const selecionada = disciplina.jurisprudencia_principal === nome;
+                      return (
+                        <form key={nome} action={atualizarJurisprudenciaPrincipal.bind(null, disciplina.id)}>
+                          <input type="hidden" name="jurisprudenciaPrincipal" value={selecionada ? "" : nome} />
+                          <button
+                            type="submit"
+                            className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                              selecionada
+                                ? "border-gold bg-gold/10 text-foreground"
+                                : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                            }`}
+                          >
+                            {selecionada && "✓ "}
+                            {nome}
+                          </button>
+                        </form>
+                      );
+                    })}
                   </div>
                 )}
 

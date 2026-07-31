@@ -9,6 +9,7 @@ import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
 import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina } from "@/lib/disciplinas";
 import { extrairTopicos, type Topico } from "@/lib/assuntos-parser";
 import { ASSUNTOS_SUGERIDOS } from "@/lib/assuntos-sugeridos";
+import { JURISPRUDENCIA_SUGERIDA, LEIS_SUGERIDAS } from "@/lib/leis-sugeridas";
 
 const HORAS_OPCOES = [
   { label: "1h", valor: 1 },
@@ -63,6 +64,10 @@ type FormState = {
   disciplinas: string[];
   // chave = nome da disciplina (como digitado em form.disciplinas)
   assuntosPorDisciplina: Record<string, Topico[]>;
+  // "cronograma à parte" — só relevante pra disciplinas jurídicas, opcional,
+  // espelha lei_principal/jurisprudencia_principal de Planejamento
+  leisPorDisciplina: Record<string, string>;
+  jurisprudenciasPorDisciplina: Record<string, string>;
   cursoPreparatorio: string;
   ativacaoModo: AtivacaoModo;
 };
@@ -74,6 +79,8 @@ const estadoInicial: FormState = {
   horasLiquidasDia: null,
   disciplinas: [""],
   assuntosPorDisciplina: {},
+  leisPorDisciplina: {},
+  jurisprudenciasPorDisciplina: {},
   cursoPreparatorio: "",
   ativacaoModo: "questoes",
 };
@@ -115,6 +122,8 @@ export function OnboardingWizard() {
             nome,
             tipo: inferirTipoDisciplina(nome),
             assuntos: form.assuntosPorDisciplina[nome] ?? [],
+            leiPrincipal: form.leisPorDisciplina[nome]?.trim() || null,
+            jurisprudenciaPrincipal: form.jurisprudenciasPorDisciplina[nome]?.trim() || null,
           })),
       });
 
@@ -507,6 +516,20 @@ function Etapa3({
     }));
   }
 
+  function definirLeiPrincipal(nomeDisciplina: string, valor: string) {
+    setForm((atual) => ({
+      ...atual,
+      leisPorDisciplina: { ...atual.leisPorDisciplina, [nomeDisciplina]: valor },
+    }));
+  }
+
+  function definirJurisprudenciaPrincipal(nomeDisciplina: string, valor: string) {
+    setForm((atual) => ({
+      ...atual,
+      jurisprudenciasPorDisciplina: { ...atual.jurisprudenciasPorDisciplina, [nomeDisciplina]: valor },
+    }));
+  }
+
   return (
     <div>
       <h1 className="text-xl font-semibold text-foreground">Assuntos de cada disciplina</h1>
@@ -519,8 +542,13 @@ function Etapa3({
           <PainelAssuntosDisciplina
             key={nome}
             nomeDisciplina={nome}
+            tipo={inferirTipoDisciplina(nome)}
             topicos={form.assuntosPorDisciplina[nome] ?? []}
             onMudar={(topicos) => definirAssuntos(nome, topicos)}
+            leiPrincipal={form.leisPorDisciplina[nome] ?? ""}
+            onMudarLeiPrincipal={(valor) => definirLeiPrincipal(nome, valor)}
+            jurisprudenciaPrincipal={form.jurisprudenciasPorDisciplina[nome] ?? ""}
+            onMudarJurisprudenciaPrincipal={(valor) => definirJurisprudenciaPrincipal(nome, valor)}
           />
         ))}
       </div>
@@ -545,12 +573,22 @@ function Etapa3({
 
 function PainelAssuntosDisciplina({
   nomeDisciplina,
+  tipo,
   topicos,
   onMudar,
+  leiPrincipal,
+  onMudarLeiPrincipal,
+  jurisprudenciaPrincipal,
+  onMudarJurisprudenciaPrincipal,
 }: {
   nomeDisciplina: string;
+  tipo: string;
   topicos: Topico[];
   onMudar: (topicos: Topico[]) => void;
+  leiPrincipal: string;
+  onMudarLeiPrincipal: (valor: string) => void;
+  jurisprudenciaPrincipal: string;
+  onMudarJurisprudenciaPrincipal: (valor: string) => void;
 }) {
   const [nomeNovo, setNomeNovo] = useState("");
   const [textoLote, setTextoLote] = useState("");
@@ -611,6 +649,75 @@ function PainelAssuntosDisciplina({
           · {topicos.length} assunto{topicos.length === 1 ? "" : "s"}
         </span>
       </summary>
+
+      {tipo === "juridica" && (
+        <div className="mt-3 space-y-2 border-b border-foreground/10 pb-3">
+          <div>
+            <label className="mb-1 block text-xs text-foreground/50">
+              Lei principal (opcional — só se quiser ler ela de forma contínua, não por assunto)
+            </label>
+            <input
+              type="text"
+              value={leiPrincipal}
+              onChange={(e) => onMudarLeiPrincipal(e.target.value)}
+              placeholder="Ex: Constituição Federal"
+              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+            {(LEIS_SUGERIDAS[nomeDisciplina] ?? []).length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {LEIS_SUGERIDAS[nomeDisciplina].map((nome) => {
+                  const selecionada = leiPrincipal === nome;
+                  return (
+                    <button
+                      type="button"
+                      key={nome}
+                      onClick={() => onMudarLeiPrincipal(selecionada ? "" : nome)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        selecionada
+                          ? "border-gold bg-gold/10 text-foreground"
+                          : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                      }`}
+                    >
+                      {selecionada && "✓ "}
+                      {nome}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-foreground/50">Jurisprudência principal (opcional)</label>
+            <input
+              type="text"
+              value={jurisprudenciaPrincipal}
+              onChange={(e) => onMudarJurisprudenciaPrincipal(e.target.value)}
+              placeholder="Ex: Súmulas do STJ e STF"
+              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {JURISPRUDENCIA_SUGERIDA.map((nome) => {
+                const selecionada = jurisprudenciaPrincipal === nome;
+                return (
+                  <button
+                    type="button"
+                    key={nome}
+                    onClick={() => onMudarJurisprudenciaPrincipal(selecionada ? "" : nome)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      selecionada
+                        ? "border-gold bg-gold/10 text-foreground"
+                        : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                    }`}
+                  >
+                    {selecionada && "✓ "}
+                    {nome}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {topicos.length > 0 && (
         <div className="mt-3 space-y-1.5">

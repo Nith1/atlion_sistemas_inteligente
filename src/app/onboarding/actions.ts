@@ -5,7 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 import { type Topico } from "@/lib/assuntos-parser";
 import { garantirSessaoEmAndamento } from "../(app)/sessao/actions";
 
-export type DisciplinaInput = { nome: string; tipo: string; assuntos: Topico[] };
+export type DisciplinaInput = {
+  nome: string;
+  tipo: string;
+  assuntos: Topico[];
+  leiPrincipal: string | null;
+  jurisprudenciaPrincipal: string | null;
+};
 
 export type OnboardingPayload = {
   concurso: string;
@@ -51,6 +57,8 @@ export async function concluirOnboarding(payload: OnboardingPayload) {
           nome: disciplina.nome,
           tipo: disciplina.tipo,
           ordem: indice,
+          lei_principal: disciplina.leiPrincipal,
+          jurisprudencia_principal: disciplina.jurisprudenciaPrincipal,
         }))
       )
       .select("id, nome");
