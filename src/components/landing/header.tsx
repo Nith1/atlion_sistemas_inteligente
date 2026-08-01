@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 const NAV_LINKS = [
   { href: "#como-funciona", label: "Como Funciona" },
   { href: "#metodologia", label: "Metodologia" },
-  { href: "#planos", label: "Planos" },
+  { href: "#lista-de-espera", label: "Acesso antecipado" },
   { href: "#faq", label: "FAQ" },
 ];
 
@@ -58,12 +58,12 @@ export function LandingHeader() {
           <Link href="/login" className="hidden text-sm text-[#AAB4C3] transition hover:text-[#F5F3EF] sm:inline">
             Entrar
           </Link>
-          <Link
-            href="/signup"
+          <a
+            href="#lista-de-espera"
             className="rounded-full bg-[#C8A15A] px-5 py-2 text-sm font-semibold text-[#08111D] transition hover:opacity-90"
           >
             Começar
-          </Link>
+          </a>
         </div>
       </div>
     </header>

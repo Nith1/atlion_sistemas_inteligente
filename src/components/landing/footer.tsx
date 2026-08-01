@@ -19,8 +19,8 @@ export function LandingFooter() {
           <a href="#metodologia" className="transition hover:text-[#F5F3EF]">
             Metodologia
           </a>
-          <a href="#planos" className="transition hover:text-[#F5F3EF]">
-            Planos
+          <a href="#lista-de-espera" className="transition hover:text-[#F5F3EF]">
+            Acesso antecipado
           </a>
           <a href="#faq" className="transition hover:text-[#F5F3EF]">
             FAQ

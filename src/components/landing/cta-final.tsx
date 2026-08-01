@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { ScrollReveal } from "./scroll-reveal";
 import { InstalarAppLink } from "./instalar-app-link";
 
@@ -14,12 +13,12 @@ export function CtaFinal() {
       </ScrollReveal>
 
       <ScrollReveal delayMs={140} className="mt-12">
-        <Link
-          href="/signup"
+        <a
+          href="#lista-de-espera"
           className="inline-block rounded-full bg-[#C8A15A] px-12 py-5 text-base font-semibold text-[#08111D] transition hover:opacity-90"
         >
-          Começar agora
-        </Link>
+          Entrar na lista de espera
+        </a>
       </ScrollReveal>
 
       <ScrollReveal delayMs={220} className="mt-6">

@@ -8,6 +8,7 @@ export const LIMITES_RATE = {
   login: { limite: 10, janelaSegundos: 15 * 60 },
   signup: { limite: 5, janelaSegundos: 60 * 60 },
   esqueciSenha: { limite: 3, janelaSegundos: 60 * 60 },
+  waitlist: { limite: 5, janelaSegundos: 60 * 60 },
 } as const;
 
 // Verifica e registra uma tentativa via a função RPC (security definer) —

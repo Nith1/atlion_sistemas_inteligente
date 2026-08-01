@@ -18,7 +18,7 @@ const NAV_ITEMS = [
 
 const CHAVE_COLAPSO = "atlion-sidebar-colapsada";
 
-export function Sidebar() {
+export function Sidebar({ isAdmin }: { isAdmin: boolean }) {
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
   const [colapsada, setColapsada] = useState(false);
@@ -74,7 +74,7 @@ export function Sidebar() {
               transition={{ duration: 0.3, ease: "easeOut" }}
               className="fixed inset-y-0 left-0 z-50 flex w-64 flex-col bg-background px-4 py-6 shadow-xl md:hidden"
             >
-              <NavConteudo pathname={pathname} onNavegar={() => setAberto(false)} />
+              <NavConteudo pathname={pathname} isAdmin={isAdmin} onNavegar={() => setAberto(false)} />
             </motion.aside>
           </>
         )}
@@ -95,7 +95,7 @@ export function Sidebar() {
         </aside>
       ) : (
         <aside className="hidden w-56 shrink-0 flex-col border-r border-foreground/10 px-4 py-6 md:flex">
-          <NavConteudo pathname={pathname} onColapsar={alternarColapso} />
+          <NavConteudo pathname={pathname} isAdmin={isAdmin} onColapsar={alternarColapso} />
         </aside>
       )}
     </>
@@ -104,13 +104,18 @@ export function Sidebar() {
 
 function NavConteudo({
   pathname,
+  isAdmin,
   onNavegar,
   onColapsar,
 }: {
   pathname: string;
+  isAdmin: boolean;
   onNavegar?: () => void;
   onColapsar?: () => void;
 }) {
+  const navItems = isAdmin
+    ? [...NAV_ITEMS, { href: "/admin/convites", label: "Admin", Icone: IconeAdmin }]
+    : NAV_ITEMS;
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between">
@@ -141,7 +146,7 @@ function NavConteudo({
       </form>
 
       <nav className="mt-6 flex flex-col gap-1 text-sm">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const ativo = pathname?.startsWith(item.href);
           return (
             <Link
@@ -271,6 +276,15 @@ function IconeEstatisticas(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M5 20V10M12 20V4M19 20v-7" />
+    </svg>
+  );
+}
+
+function IconeAdmin(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" />
+      <path d="M9.5 12l1.8 1.8L14.5 10" />
     </svg>
   );
 }

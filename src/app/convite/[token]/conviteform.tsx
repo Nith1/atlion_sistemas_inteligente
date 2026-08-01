@@ -1,13 +1,14 @@
 "use client";
 
 import { useActionState } from "react";
-import { signUp, type SignUpState } from "./actions";
+import { resgatarConvite, type ConviteState } from "./actions";
 import { PasswordInput } from "@/components/ui/password-input";
 
-const initialState: SignUpState = { error: null, success: false };
+const initialState: ConviteState = { error: null, success: false };
 
-export function SignupForm() {
-  const [state, formAction, pending] = useActionState(signUp, initialState);
+export function ConviteForm({ token, email }: { token: string; email: string }) {
+  const acaoComConvite = resgatarConvite.bind(null, token, email);
+  const [state, formAction, pending] = useActionState(acaoComConvite, initialState);
 
   if (state.success) {
     return (
@@ -21,20 +22,14 @@ export function SignupForm() {
   return (
     <form action={formAction} className="mt-8 space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium">
-          Email
-        </label>
-        <input
-          id="email"
-          name="email"
-          type="email"
-          required
-          className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
-        />
+        <label className="block text-sm font-medium">Email</label>
+        <p className="mt-1 w-full rounded-md border border-foreground/10 bg-foreground/5 px-3 py-2 text-sm text-foreground/70">
+          {email}
+        </p>
       </div>
       <div>
         <label htmlFor="password" className="block text-sm font-medium">
-          Senha
+          Crie sua senha
         </label>
         <PasswordInput
           id="password"

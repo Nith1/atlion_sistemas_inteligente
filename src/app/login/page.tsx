@@ -40,8 +40,8 @@ export default async function LoginPage({
         <LoginForm />
         <p className="mt-8 text-sm text-foreground/70">
           Ainda não tem conta?{" "}
-          <Link href="/signup" className="text-foreground underline underline-offset-4">
-            Criar conta
+          <Link href="/#lista-de-espera" className="text-foreground underline underline-offset-4">
+            Entre na lista de espera
           </Link>
         </p>
       </div>

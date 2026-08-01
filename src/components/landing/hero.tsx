@@ -20,12 +20,12 @@ export function Hero() {
         </ScrollReveal>
 
         <ScrollReveal delayMs={220} className="mt-10 flex flex-col items-center lg:items-start">
-          <Link
-            href="/signup"
+          <a
+            href="#lista-de-espera"
             className="rounded-full bg-[#C8A15A] px-9 py-3.5 text-sm font-semibold text-[#08111D] transition hover:opacity-90"
           >
-            Começar agora
-          </Link>
+            Entrar na lista de espera
+          </a>
           <Link href="/login" className="mt-5 text-sm text-[#AAB4C3] transition hover:text-[#F5F3EF]">
             Já tem conta? Entrar
           </Link>
