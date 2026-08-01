@@ -138,7 +138,7 @@ export default async function CadernoErrosPage({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:px-6 sm:py-16">
       <Link href="/painel" className="text-sm text-foreground/50 hover:text-foreground">
         ← Voltar
       </Link>

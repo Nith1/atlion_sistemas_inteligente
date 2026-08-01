@@ -56,9 +56,9 @@ export type SessaoBundle = {
   sessaoTipo: "normal" | "consolidacao" | "validacao";
   disciplinaId: string;
   disciplinaNome: string;
-  leiPrincipal: string | null;
+  leisPrincipais: string[];
   progressoLeiSecaDisciplina: string | null;
-  jurisprudenciaPrincipal: string | null;
+  jurisprudenciasPrincipais: string[];
   progressoJurisprudenciaDisciplina: string | null;
   ajusteTempo: number;
   ativacaoModo: string;

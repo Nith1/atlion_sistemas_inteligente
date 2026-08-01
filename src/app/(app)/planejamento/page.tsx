@@ -10,8 +10,10 @@ import {
   adicionarDisciplina,
   removerDisciplina,
   atualizarPrioridadeDisciplina,
-  atualizarLeiPrincipal,
-  atualizarJurisprudenciaPrincipal,
+  adicionarLeiPrincipal,
+  removerLeiPrincipal,
+  adicionarJurisprudenciaPrincipal,
+  removerJurisprudenciaPrincipal,
   adicionarAssunto,
   adicionarAssuntosEmLote,
   alternarSugestaoAssunto,
@@ -45,8 +47,8 @@ type Disciplina = {
   tipo: string;
   ordem: number;
   prioridade: Prioridade;
-  lei_principal: string | null;
-  jurisprudencia_principal: string | null;
+  leis_principais: string[];
+  jurisprudencias_principais: string[];
   assuntos: Assunto[];
 };
 
@@ -175,14 +177,14 @@ export default async function PlanejamentoPage() {
   const { data: disciplinas } = await supabase
     .from("disciplinas")
     .select(
-      "id, nome, tipo, ordem, prioridade, lei_principal, jurisprudencia_principal, assuntos(id, nome, ordem, ja_estudado, parent_id)"
+      "id, nome, tipo, ordem, prioridade, leis_principais, jurisprudencias_principais, assuntos(id, nome, ordem, ja_estudado, parent_id)"
     )
     .eq("user_id", user.id)
     .order("ordem", { ascending: true })
     .returns<Disciplina[]>();
 
   return (
-    <div className="mx-auto w-full max-w-2xl flex-1 px-6 py-16">
+    <div className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:px-6 sm:py-16">
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-foreground">Planejamento</h1>
         <Link href="/painel" className="text-sm text-foreground/60 underline underline-offset-4">
@@ -234,92 +236,106 @@ export default async function PlanejamentoPage() {
 
               <div className="mt-4 space-y-2">
                 {disciplina.tipo === "juridica" && (
-                  <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-foreground/40">Lei principal:</span>
-                    <InfoTip texto="Quando preenchida, a etapa de Lei Seca lê essa lei de forma contínua toda vez que essa disciplina entrar no ciclo — independente do assunto estudado no dia. Deixe em branco pra continuar perguntando a lei a cada assunto." />
+                  <div className="mb-4 rounded-md border border-gold/30 bg-gold/5 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gold">Leis e jurisprudência</p>
+
+                    <div className="mt-2 flex items-center gap-1.5">
+                      <span className="text-xs text-foreground/40">Leis principais:</span>
+                      <InfoTip texto="Quando marcada, a etapa de Lei Seca lê essa lei de forma contínua toda vez que essa disciplina entrar no ciclo — independente do assunto estudado no dia. Pode marcar mais de uma. Deixe sem nenhuma marcada pra continuar perguntando a lei a cada assunto." />
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {disciplina.leis_principais.map((nome) => (
+                        <form key={nome} action={removerLeiPrincipal.bind(null, disciplina.id, nome)}>
+                          <SubmitButton
+                            pendingText={nome}
+                            className="rounded-full border border-gold bg-gold/10 px-2.5 py-1 text-xs text-foreground"
+                          >
+                            ✓ {nome}
+                          </SubmitButton>
+                        </form>
+                      ))}
+                      {(LEIS_SUGERIDAS[disciplina.nome] ?? [])
+                        .filter((nome) => !disciplina.leis_principais.includes(nome))
+                        .map((nome) => (
+                          <form key={nome} action={adicionarLeiPrincipal.bind(null, disciplina.id)}>
+                            <input type="hidden" name="leiPrincipal" value={nome} />
+                            <SubmitButton
+                              pendingText={nome}
+                              className="rounded-full border border-foreground/20 px-2.5 py-1 text-xs text-foreground/60 hover:border-foreground/40"
+                            >
+                              {nome}
+                            </SubmitButton>
+                          </form>
+                        ))}
+                    </div>
                     <form
-                      action={atualizarLeiPrincipal.bind(null, disciplina.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2"
+                      action={adicionarLeiPrincipal.bind(null, disciplina.id)}
+                      className="mt-1.5 flex items-center gap-2"
                     >
                       <input
                         name="leiPrincipal"
                         type="text"
-                        defaultValue={disciplina.lei_principal ?? ""}
-                        placeholder="Ex: Constituição Federal"
+                        placeholder="Adicionar lei..."
                         className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-xs outline-none focus:border-gold"
                       />
                       <SubmitButton
-                        pendingText="Salvando..."
+                        pendingText="Adicionando..."
                         className="shrink-0 rounded-md px-3 py-1 text-xs font-medium text-foreground/70 ring-1 ring-foreground/15 hover:text-foreground hover:ring-foreground/40"
                       >
-                        Salvar
+                        Adicionar
                       </SubmitButton>
                     </form>
-                    {(LEIS_SUGERIDAS[disciplina.nome] ?? []).map((nome) => {
-                      const selecionada = disciplina.lei_principal === nome;
-                      return (
-                        <form key={nome} action={atualizarLeiPrincipal.bind(null, disciplina.id)}>
-                          <input type="hidden" name="leiPrincipal" value={selecionada ? "" : nome} />
-                          <button
-                            type="submit"
-                            className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                              selecionada
-                                ? "border-gold bg-gold/10 text-foreground"
-                                : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
-                            }`}
-                          >
-                            {selecionada && "✓ "}
-                            {nome}
-                          </button>
-                        </form>
-                      );
-                    })}
-                  </div>
-                )}
 
-                {disciplina.tipo === "juridica" && (
-                  <div className="mb-4 flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs text-foreground/40">Jurisprudência principal:</span>
-                    <InfoTip texto="Quando preenchida, a etapa de Jurisprudência lê essa referência de forma contínua toda vez que essa disciplina entrar no ciclo — independente do assunto estudado no dia. Deixe em branco pra continuar perguntando a jurisprudência a cada assunto." />
+                    <div className="mt-3 flex items-center gap-1.5">
+                      <span className="text-xs text-foreground/40">Jurisprudências principais:</span>
+                      <InfoTip texto="Quando marcada, a etapa de Jurisprudência lê essa referência de forma contínua toda vez que essa disciplina entrar no ciclo — independente do assunto estudado no dia. Pode marcar mais de uma. Deixe sem nenhuma marcada pra continuar perguntando a jurisprudência a cada assunto." />
+                    </div>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {disciplina.jurisprudencias_principais.map((nome) => (
+                        <form key={nome} action={removerJurisprudenciaPrincipal.bind(null, disciplina.id, nome)}>
+                          <SubmitButton
+                            pendingText={nome}
+                            className="rounded-full border border-gold bg-gold/10 px-2.5 py-1 text-xs text-foreground"
+                          >
+                            ✓ {nome}
+                          </SubmitButton>
+                        </form>
+                      ))}
+                      {JURISPRUDENCIA_SUGERIDA.filter(
+                        (nome) => !disciplina.jurisprudencias_principais.includes(nome)
+                      ).map((nome) => (
+                        <form key={nome} action={adicionarJurisprudenciaPrincipal.bind(null, disciplina.id)}>
+                          <input type="hidden" name="jurisprudenciaPrincipal" value={nome} />
+                          <SubmitButton
+                            pendingText={nome}
+                            className="rounded-full border border-foreground/20 px-2.5 py-1 text-xs text-foreground/60 hover:border-foreground/40"
+                          >
+                            {nome}
+                          </SubmitButton>
+                        </form>
+                      ))}
+                    </div>
                     <form
-                      action={atualizarJurisprudenciaPrincipal.bind(null, disciplina.id)}
-                      className="flex min-w-0 flex-1 items-center gap-2"
+                      action={adicionarJurisprudenciaPrincipal.bind(null, disciplina.id)}
+                      className="mt-1.5 flex items-center gap-2"
                     >
                       <input
                         name="jurisprudenciaPrincipal"
                         type="text"
-                        defaultValue={disciplina.jurisprudencia_principal ?? ""}
-                        placeholder="Ex: Súmulas do STJ e STF"
+                        placeholder="Adicionar jurisprudência..."
                         className="min-w-0 flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1 text-xs outline-none focus:border-gold"
                       />
                       <SubmitButton
-                        pendingText="Salvando..."
+                        pendingText="Adicionando..."
                         className="shrink-0 rounded-md px-3 py-1 text-xs font-medium text-foreground/70 ring-1 ring-foreground/15 hover:text-foreground hover:ring-foreground/40"
                       >
-                        Salvar
+                        Adicionar
                       </SubmitButton>
                     </form>
-                    {JURISPRUDENCIA_SUGERIDA.map((nome) => {
-                      const selecionada = disciplina.jurisprudencia_principal === nome;
-                      return (
-                        <form key={nome} action={atualizarJurisprudenciaPrincipal.bind(null, disciplina.id)}>
-                          <input type="hidden" name="jurisprudenciaPrincipal" value={selecionada ? "" : nome} />
-                          <button
-                            type="submit"
-                            className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                              selecionada
-                                ? "border-gold bg-gold/10 text-foreground"
-                                : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
-                            }`}
-                          >
-                            {selecionada && "✓ "}
-                            {nome}
-                          </button>
-                        </form>
-                      );
-                    })}
                   </div>
                 )}
+
+                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/40">Assuntos</p>
 
                 {totalAssuntos === 0 && (
                   <p className="text-sm text-foreground/50">

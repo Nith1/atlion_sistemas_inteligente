@@ -9,8 +9,8 @@ export type DisciplinaInput = {
   nome: string;
   tipo: string;
   assuntos: Topico[];
-  leiPrincipal: string | null;
-  jurisprudenciaPrincipal: string | null;
+  leisPrincipais: string[];
+  jurisprudenciasPrincipais: string[];
 };
 
 export type OnboardingPayload = {
@@ -57,8 +57,8 @@ export async function concluirOnboarding(payload: OnboardingPayload) {
           nome: disciplina.nome,
           tipo: disciplina.tipo,
           ordem: indice,
-          lei_principal: disciplina.leiPrincipal,
-          jurisprudencia_principal: disciplina.jurisprudenciaPrincipal,
+          leis_principais: disciplina.leisPrincipais,
+          jurisprudencias_principais: disciplina.jurisprudenciasPrincipais,
         }))
       )
       .select("id, nome");

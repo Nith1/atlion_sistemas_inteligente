@@ -53,21 +53,79 @@ export async function atualizarPrioridadeDisciplina(disciplinaId: string, priori
   revalidatePath("/planejamento");
 }
 
-export async function atualizarLeiPrincipal(disciplinaId: string, formData: FormData) {
-  const { supabase } = await requireUser();
-  const leiPrincipal = (formData.get("leiPrincipal") as string)?.trim();
+export async function adicionarLeiPrincipal(disciplinaId: string, formData: FormData) {
+  const lei = (formData.get("leiPrincipal") as string)?.trim();
+  if (!lei) return;
 
-  await supabase.from("disciplinas").update({ lei_principal: leiPrincipal || null }).eq("id", disciplinaId);
+  const { supabase } = await requireUser();
+  const { data: disciplina } = await supabase
+    .from("disciplinas")
+    .select("leis_principais")
+    .eq("id", disciplinaId)
+    .single();
+  if (!disciplina) return;
+
+  const atuais = disciplina.leis_principais ?? [];
+  if (atuais.some((l: string) => l.toLowerCase() === lei.toLowerCase())) return;
+
+  await supabase.from("disciplinas").update({ leis_principais: [...atuais, lei] }).eq("id", disciplinaId);
   revalidatePath("/planejamento");
 }
 
-export async function atualizarJurisprudenciaPrincipal(disciplinaId: string, formData: FormData) {
+export async function removerLeiPrincipal(disciplinaId: string, lei: string) {
   const { supabase } = await requireUser();
-  const jurisprudenciaPrincipal = (formData.get("jurisprudenciaPrincipal") as string)?.trim();
+  const { data: disciplina } = await supabase
+    .from("disciplinas")
+    .select("leis_principais")
+    .eq("id", disciplinaId)
+    .single();
+  if (!disciplina) return;
 
   await supabase
     .from("disciplinas")
-    .update({ jurisprudencia_principal: jurisprudenciaPrincipal || null })
+    .update({ leis_principais: (disciplina.leis_principais ?? []).filter((l: string) => l !== lei) })
+    .eq("id", disciplinaId);
+  revalidatePath("/planejamento");
+}
+
+export async function adicionarJurisprudenciaPrincipal(disciplinaId: string, formData: FormData) {
+  const jurisprudencia = (formData.get("jurisprudenciaPrincipal") as string)?.trim();
+  if (!jurisprudencia) return;
+
+  const { supabase } = await requireUser();
+  const { data: disciplina } = await supabase
+    .from("disciplinas")
+    .select("jurisprudencias_principais")
+    .eq("id", disciplinaId)
+    .single();
+  if (!disciplina) return;
+
+  const atuais = disciplina.jurisprudencias_principais ?? [];
+  if (atuais.some((j: string) => j.toLowerCase() === jurisprudencia.toLowerCase())) return;
+
+  await supabase
+    .from("disciplinas")
+    .update({ jurisprudencias_principais: [...atuais, jurisprudencia] })
+    .eq("id", disciplinaId);
+  revalidatePath("/planejamento");
+}
+
+export async function removerJurisprudenciaPrincipal(disciplinaId: string, jurisprudencia: string) {
+  const { supabase } = await requireUser();
+  const { data: disciplina } = await supabase
+    .from("disciplinas")
+    .select("jurisprudencias_principais")
+    .eq("id", disciplinaId)
+    .single();
+  if (!disciplina) return;
+
+  await supabase
+    .from("disciplinas")
+    .update({
+      jurisprudencias_principais: (disciplina.jurisprudencias_principais ?? []).filter(
+        (j: string) => j !== jurisprudencia
+      ),
+    })
     .eq("id", disciplinaId);
   revalidatePath("/planejamento");
 }

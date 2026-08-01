@@ -65,9 +65,9 @@ type FormState = {
   // chave = nome da disciplina (como digitado em form.disciplinas)
   assuntosPorDisciplina: Record<string, Topico[]>;
   // "cronograma à parte" — só relevante pra disciplinas jurídicas, opcional,
-  // espelha lei_principal/jurisprudencia_principal de Planejamento
-  leisPorDisciplina: Record<string, string>;
-  jurisprudenciasPorDisciplina: Record<string, string>;
+  // espelha leis_principais/jurisprudencias_principais de Planejamento
+  leisPorDisciplina: Record<string, string[]>;
+  jurisprudenciasPorDisciplina: Record<string, string[]>;
   cursoPreparatorio: string;
   ativacaoModo: AtivacaoModo;
 };
@@ -122,8 +122,8 @@ export function OnboardingWizard() {
             nome,
             tipo: inferirTipoDisciplina(nome),
             assuntos: form.assuntosPorDisciplina[nome] ?? [],
-            leiPrincipal: form.leisPorDisciplina[nome]?.trim() || null,
-            jurisprudenciaPrincipal: form.jurisprudenciasPorDisciplina[nome]?.trim() || null,
+            leisPrincipais: form.leisPorDisciplina[nome] ?? [],
+            jurisprudenciasPrincipais: form.jurisprudenciasPorDisciplina[nome] ?? [],
           })),
       });
 
@@ -516,17 +516,17 @@ function Etapa3({
     }));
   }
 
-  function definirLeiPrincipal(nomeDisciplina: string, valor: string) {
+  function definirLeisPrincipais(nomeDisciplina: string, valores: string[]) {
     setForm((atual) => ({
       ...atual,
-      leisPorDisciplina: { ...atual.leisPorDisciplina, [nomeDisciplina]: valor },
+      leisPorDisciplina: { ...atual.leisPorDisciplina, [nomeDisciplina]: valores },
     }));
   }
 
-  function definirJurisprudenciaPrincipal(nomeDisciplina: string, valor: string) {
+  function definirJurisprudenciasPrincipais(nomeDisciplina: string, valores: string[]) {
     setForm((atual) => ({
       ...atual,
-      jurisprudenciasPorDisciplina: { ...atual.jurisprudenciasPorDisciplina, [nomeDisciplina]: valor },
+      jurisprudenciasPorDisciplina: { ...atual.jurisprudenciasPorDisciplina, [nomeDisciplina]: valores },
     }));
   }
 
@@ -545,10 +545,10 @@ function Etapa3({
             tipo={inferirTipoDisciplina(nome)}
             topicos={form.assuntosPorDisciplina[nome] ?? []}
             onMudar={(topicos) => definirAssuntos(nome, topicos)}
-            leiPrincipal={form.leisPorDisciplina[nome] ?? ""}
-            onMudarLeiPrincipal={(valor) => definirLeiPrincipal(nome, valor)}
-            jurisprudenciaPrincipal={form.jurisprudenciasPorDisciplina[nome] ?? ""}
-            onMudarJurisprudenciaPrincipal={(valor) => definirJurisprudenciaPrincipal(nome, valor)}
+            leisPrincipais={form.leisPorDisciplina[nome] ?? []}
+            onMudarLeisPrincipais={(valores) => definirLeisPrincipais(nome, valores)}
+            jurisprudenciasPrincipais={form.jurisprudenciasPorDisciplina[nome] ?? []}
+            onMudarJurisprudenciasPrincipais={(valores) => definirJurisprudenciasPrincipais(nome, valores)}
           />
         ))}
       </div>
@@ -576,19 +576,19 @@ function PainelAssuntosDisciplina({
   tipo,
   topicos,
   onMudar,
-  leiPrincipal,
-  onMudarLeiPrincipal,
-  jurisprudenciaPrincipal,
-  onMudarJurisprudenciaPrincipal,
+  leisPrincipais,
+  onMudarLeisPrincipais,
+  jurisprudenciasPrincipais,
+  onMudarJurisprudenciasPrincipais,
 }: {
   nomeDisciplina: string;
   tipo: string;
   topicos: Topico[];
   onMudar: (topicos: Topico[]) => void;
-  leiPrincipal: string;
-  onMudarLeiPrincipal: (valor: string) => void;
-  jurisprudenciaPrincipal: string;
-  onMudarJurisprudenciaPrincipal: (valor: string) => void;
+  leisPrincipais: string[];
+  onMudarLeisPrincipais: (valores: string[]) => void;
+  jurisprudenciasPrincipais: string[];
+  onMudarJurisprudenciasPrincipais: (valores: string[]) => void;
 }) {
   const [nomeNovo, setNomeNovo] = useState("");
   const [textoLote, setTextoLote] = useState("");
@@ -651,76 +651,31 @@ function PainelAssuntosDisciplina({
       </summary>
 
       {tipo === "juridica" && (
-        <div className="mt-3 space-y-2 border-b border-foreground/10 pb-3">
-          <div>
-            <label className="mb-1 block text-xs text-foreground/50">
-              Lei principal (opcional — só se quiser ler ela de forma contínua, não por assunto)
-            </label>
-            <input
-              type="text"
-              value={leiPrincipal}
-              onChange={(e) => onMudarLeiPrincipal(e.target.value)}
+        <div className="mt-3 rounded-md border border-gold/30 bg-gold/5 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-gold">Leis e jurisprudência</p>
+          <div className="mt-2 space-y-3">
+            <SeletorMultiplo
+              label="Leis principais (opcional — só se quiser ler alguma de forma contínua, não por assunto)"
+              valores={leisPrincipais}
+              onMudar={onMudarLeisPrincipais}
+              sugestoes={LEIS_SUGERIDAS[nomeDisciplina] ?? []}
               placeholder="Ex: Constituição Federal"
-              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
             />
-            {(LEIS_SUGERIDAS[nomeDisciplina] ?? []).length > 0 && (
-              <div className="mt-1.5 flex flex-wrap gap-1.5">
-                {LEIS_SUGERIDAS[nomeDisciplina].map((nome) => {
-                  const selecionada = leiPrincipal === nome;
-                  return (
-                    <button
-                      type="button"
-                      key={nome}
-                      onClick={() => onMudarLeiPrincipal(selecionada ? "" : nome)}
-                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                        selecionada
-                          ? "border-gold bg-gold/10 text-foreground"
-                          : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
-                      }`}
-                    >
-                      {selecionada && "✓ "}
-                      {nome}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-foreground/50">Jurisprudência principal (opcional)</label>
-            <input
-              type="text"
-              value={jurisprudenciaPrincipal}
-              onChange={(e) => onMudarJurisprudenciaPrincipal(e.target.value)}
+            <SeletorMultiplo
+              label="Jurisprudências principais (opcional)"
+              valores={jurisprudenciasPrincipais}
+              onMudar={onMudarJurisprudenciasPrincipais}
+              sugestoes={JURISPRUDENCIA_SUGERIDA}
               placeholder="Ex: Súmulas do STJ e STF"
-              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
             />
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {JURISPRUDENCIA_SUGERIDA.map((nome) => {
-                const selecionada = jurisprudenciaPrincipal === nome;
-                return (
-                  <button
-                    type="button"
-                    key={nome}
-                    onClick={() => onMudarJurisprudenciaPrincipal(selecionada ? "" : nome)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      selecionada
-                        ? "border-gold bg-gold/10 text-foreground"
-                        : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
-                    }`}
-                  >
-                    {selecionada && "✓ "}
-                    {nome}
-                  </button>
-                );
-              })}
-            </div>
           </div>
         </div>
       )}
 
+      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-foreground/40">Assuntos</p>
+
       {topicos.length > 0 && (
-        <div className="mt-3 space-y-1.5">
+        <div className="mt-2 space-y-1.5">
           {topicos.map((topico, indice) => (
             <div
               key={indice}
@@ -866,6 +821,93 @@ function PainelAssuntosDisciplina({
         )}
       </div>
     </details>
+  );
+}
+
+// Multi-seleção com chips: marcados aparecem com ✓ (clicar remove),
+// sugestões não marcadas aparecem sem check (clicar adiciona), e dá pra
+// digitar um valor próprio que não está na lista de sugestões.
+function SeletorMultiplo({
+  label,
+  valores,
+  onMudar,
+  sugestoes,
+  placeholder,
+}: {
+  label: string;
+  valores: string[];
+  onMudar: (valores: string[]) => void;
+  sugestoes: string[];
+  placeholder: string;
+}) {
+  const [novo, setNovo] = useState("");
+
+  function adicionar(nome: string) {
+    const limpo = nome.trim();
+    if (!limpo || valores.some((v) => v.toLowerCase() === limpo.toLowerCase())) return;
+    onMudar([...valores, limpo]);
+  }
+
+  function remover(nome: string) {
+    onMudar(valores.filter((v) => v !== nome));
+  }
+
+  return (
+    <div>
+      <label className="mb-1 block text-xs text-foreground/50">{label}</label>
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={novo}
+          onChange={(e) => setNovo(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              adicionar(novo);
+              setNovo("");
+            }
+          }}
+          placeholder={placeholder}
+          className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+        />
+        <button
+          type="button"
+          onClick={() => {
+            adicionar(novo);
+            setNovo("");
+          }}
+          className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
+          Adicionar
+        </button>
+      </div>
+      {(valores.length > 0 || sugestoes.length > 0) && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
+          {valores.map((nome) => (
+            <button
+              type="button"
+              key={nome}
+              onClick={() => remover(nome)}
+              className="rounded-full border border-gold bg-gold/10 px-2.5 py-1 text-xs text-foreground"
+            >
+              ✓ {nome}
+            </button>
+          ))}
+          {sugestoes
+            .filter((nome) => !valores.some((v) => v.toLowerCase() === nome.toLowerCase()))
+            .map((nome) => (
+              <button
+                type="button"
+                key={nome}
+                onClick={() => adicionar(nome)}
+                className="rounded-full border border-foreground/20 px-2.5 py-1 text-xs text-foreground/60 hover:border-foreground/40"
+              >
+                {nome}
+              </button>
+            ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -45,7 +45,9 @@ export default async function SessaoPage() {
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
-    .select("id, nome, tipo, lei_principal, progresso_lei_seca, jurisprudencia_principal, progresso_jurisprudencia")
+    .select(
+      "id, nome, tipo, leis_principais, progresso_lei_seca, jurisprudencias_principais, progresso_jurisprudencia"
+    )
     .eq("id", sessao.disciplina_id)
     .single();
 
@@ -233,9 +235,9 @@ export default async function SessaoPage() {
       sessao.tipo === "consolidacao" ? "consolidacao" : sessao.tipo === "validacao" ? "validacao" : "normal",
     disciplinaId: disciplina.id,
     disciplinaNome: disciplina.nome,
-    leiPrincipal: disciplina.lei_principal,
+    leisPrincipais: disciplina.leis_principais,
     progressoLeiSecaDisciplina: disciplina.progresso_lei_seca,
-    jurisprudenciaPrincipal: disciplina.jurisprudencia_principal,
+    jurisprudenciasPrincipais: disciplina.jurisprudencias_principais,
     progressoJurisprudenciaDisciplina: disciplina.progresso_jurisprudencia,
     ajusteTempo: sessao.ajuste_tempo ?? 1,
     ativacaoModo: profile?.ativacao_modo ?? "questoes",
@@ -257,5 +259,10 @@ export default async function SessaoPage() {
     tempoBaseHojeSegundos,
   };
 
-  return <SessaoRuntime bundle={bundle} />;
+  // key=sessaoId: troca de sessão (ex: encadeamento automático pro próximo
+  // ciclo do dia, ver tentarEncadearProximaSessao em sessao/actions.ts) tem
+  // que remontar o componente do zero, senão o estado local — inicializado só
+  // uma vez, de propósito (ver comentário no useState de SessaoRuntime) —
+  // ficaria preso na sessão anterior, já encerrada.
+  return <SessaoRuntime key={sessao.id} bundle={bundle} />;
 }

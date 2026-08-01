@@ -19,7 +19,7 @@ export default async function OnboardingPage() {
   if (profile?.onboarding_completo) redirect("/painel");
 
   return (
-    <main className="flex flex-1 items-center justify-center px-6 py-16">
+    <main className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 sm:py-16">
       <OnboardingWizard />
     </main>
   );

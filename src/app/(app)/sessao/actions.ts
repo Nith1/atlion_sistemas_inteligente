@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LIMITE_CRONOMETRO_SEGUNDOS, segundosDesdeComLimite } from "@/lib/tempo";
+import { sessoesPrevistasHoje } from "@/lib/etapas";
 import { calcularUrgencia, type Prioridade } from "@/lib/disciplinas";
 import { criarPipelineConsolidacao, deveSerConsolidacao } from "@/lib/janela-ativacao";
 import { criarPipelineValidacao, decidirConsequenciasSimulado } from "@/lib/simulado";
@@ -79,6 +80,25 @@ async function escolherDisciplina(supabase: SupabaseClient, userId: string) {
     const urgenciaB = calcularUrgencia(ultimaSessao.get(b.id) ?? null, b.prioridade as Prioridade, agora);
     return urgenciaB - urgenciaA;
   })[0];
+}
+
+// Quantas sessões esse usuário já concluiu hoje — usado tanto pra decidir se
+// uma sessão nova é "continuação" do dia (ganha um Descanso de transição
+// antes da próxima Ativação Cognitiva) quanto pra saber se ainda cabe mais
+// uma sessão dentro das horas líquidas informadas no onboarding (ver
+// sessoesPrevistasHoje em src/lib/etapas.ts).
+async function contarSessoesConcluidasHoje(supabase: SupabaseClient, userId: string): Promise<number> {
+  const inicioHoje = new Date();
+  inicioHoje.setHours(0, 0, 0, 0);
+
+  const { count } = await supabase
+    .from("sessoes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("status", "concluida")
+    .gte("concluida_em", inicioHoje.toISOString());
+
+  return count ?? 0;
 }
 
 // Marca o início (cronômetro) da próxima etapa não concluída da sessão, se
@@ -169,6 +189,71 @@ async function retomarEtapaSeAbandonada(supabase: SupabaseClient, sessaoId: stri
     .eq("id", atual.id);
 }
 
+type DisciplinaEscolhida = {
+  id: string;
+  tipo: string;
+  assuntos_desde_consolidacao: number;
+  em_validacao: boolean;
+};
+
+// Cria a sessão + pipeline de etapas pra uma disciplina já escolhida.
+// `continuacao` marca que essa sessão emenda em outra concluída mais cedo no
+// mesmo dia (ver tentarEncadearProximaSessao) — nesse caso entra um Descanso
+// de transição antes da primeira etapa, separando um ciclo do outro (ex:
+// ...Questões, Descanso, Ativação Cognitiva...), diferente do Descanso que já
+// existe no meio de cada ciclo (depois do Estudo).
+async function criarSessaoParaDisciplina(
+  supabase: SupabaseClient,
+  userId: string,
+  disciplina: DisciplinaEscolhida,
+  continuacao: boolean
+): Promise<string | null> {
+  // Enquanto a disciplina estiver em modo de Validação, toda sessão dela é
+  // um Simulado — nem chega a checar deveSerConsolidacao (ver
+  // src/lib/janela-ativacao.ts, que fica intocado: essa função nunca
+  // precisa saber que Validação existe).
+  const ehValidacao = disciplina.em_validacao;
+  const ehConsolidacao =
+    !ehValidacao &&
+    (await deveSerConsolidacao(supabase, disciplina.id, disciplina.assuntos_desde_consolidacao));
+
+  const tipo = ehValidacao ? "validacao" : ehConsolidacao ? "consolidacao" : "normal";
+
+  const { data: sessao } = await supabase
+    .from("sessoes")
+    .insert({ user_id: userId, disciplina_id: disciplina.id, tipo })
+    .select("id")
+    .single();
+
+  if (!sessao) return null;
+
+  if (ehValidacao) {
+    await criarPipelineValidacao(supabase, sessao.id, disciplina.id);
+  } else if (ehConsolidacao) {
+    await criarPipelineConsolidacao(supabase, sessao.id, disciplina.id, disciplina.assuntos_desde_consolidacao);
+  } else {
+    const tipos = ETAPAS_POR_TIPO[disciplina.tipo] ?? ETAPAS_POR_TIPO.personalizada;
+    await supabase.from("sessao_etapas").insert(tipos.map((t, ordem) => ({ sessao_id: sessao.id, tipo: t, ordem })));
+  }
+
+  if (continuacao) {
+    const { data: etapasCriadas } = await supabase
+      .from("sessao_etapas")
+      .select("id, ordem")
+      .eq("sessao_id", sessao.id)
+      .order("ordem", { ascending: true });
+
+    if (etapasCriadas && etapasCriadas.length > 0) {
+      await Promise.all(
+        etapasCriadas.map((e) => supabase.from("sessao_etapas").update({ ordem: e.ordem + 1 }).eq("id", e.id))
+      );
+      await supabase.from("sessao_etapas").insert({ sessao_id: sessao.id, tipo: "descanso", ordem: 0 });
+    }
+  }
+
+  return sessao.id as string;
+}
+
 // Garante que existe uma sessão em andamento pro usuário (cria uma nova se
 // não houver), sem redirecionar — usado tanto pelo botão "Estudar Agora"
 // quanto pelo fim do onboarding, que precisam de comportamentos diferentes
@@ -197,37 +282,33 @@ export async function garantirSessaoEmAndamento(supabase: SupabaseClient, userId
   const disciplina = await escolherDisciplina(supabase, userId);
   if (!disciplina) return null;
 
-  // Enquanto a disciplina estiver em modo de Validação, toda sessão dela é
-  // um Simulado — nem chega a checar deveSerConsolidacao (ver
-  // src/lib/janela-ativacao.ts, que fica intocado: essa função nunca
-  // precisa saber que Validação existe).
-  const ehValidacao = disciplina.em_validacao;
-  const ehConsolidacao =
-    !ehValidacao &&
-    (await deveSerConsolidacao(supabase, disciplina.id, disciplina.assuntos_desde_consolidacao));
+  const jaEstudouHoje = (await contarSessoesConcluidasHoje(supabase, userId)) > 0;
+  return criarSessaoParaDisciplina(supabase, userId, disciplina, jaEstudouHoje);
+}
 
-  const tipo = ehValidacao ? "validacao" : ehConsolidacao ? "consolidacao" : "normal";
-
-  const { data: sessao } = await supabase
-    .from("sessoes")
-    .insert({ user_id: userId, disciplina_id: disciplina.id, tipo })
-    .select("id")
+// Chamado ao fechar o ciclo de uma disciplina (fim da etapa Questões) —
+// se as horas líquidas do dia (ver sessoesPrevistasHoje em src/lib/etapas.ts)
+// ainda comportam mais um ciclo completo hoje, a próxima sessão já é criada e
+// tem sua primeira etapa iniciada na hora, emendando no fluxo sem exigir um
+// novo "Estudar Agora" — é isso que faz a sessão do dia parecer um ciclo só
+// (Ativação, Estudo, Descanso, Lei Seca, Jurisprudência, Questões, Descanso,
+// Ativação...) mesmo sendo, por baixo, uma sessão nova por disciplina. Se não
+// couber mais nada hoje, não faz nada — o fluxo volta pro Painel como sempre.
+async function tentarEncadearProximaSessao(supabase: SupabaseClient, userId: string): Promise<void> {
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("horas_liquidas_dia")
+    .eq("id", userId)
     .single();
 
-  if (sessao) {
-    if (ehValidacao) {
-      await criarPipelineValidacao(supabase, sessao.id, disciplina.id);
-    } else if (ehConsolidacao) {
-      await criarPipelineConsolidacao(supabase, sessao.id, disciplina.id, disciplina.assuntos_desde_consolidacao);
-    } else {
-      const tipos = ETAPAS_POR_TIPO[disciplina.tipo] ?? ETAPAS_POR_TIPO.personalizada;
-      await supabase.from("sessao_etapas").insert(
-        tipos.map((tipo, ordem) => ({ sessao_id: sessao.id, tipo, ordem }))
-      );
-    }
-  }
+  const concluidasHoje = await contarSessoesConcluidasHoje(supabase, userId);
+  if (concluidasHoje >= sessoesPrevistasHoje(profile?.horas_liquidas_dia)) return;
 
-  return sessao?.id ?? null;
+  const disciplina = await escolherDisciplina(supabase, userId);
+  if (!disciplina) return;
+
+  const proximaSessaoId = await criarSessaoParaDisciplina(supabase, userId, disciplina, true);
+  if (proximaSessaoId) await iniciarProximaEtapa(supabase, proximaSessaoId);
 }
 
 const AJUSTES_TEMPO_VALIDOS = [0.7, 1, 1.3];
@@ -433,11 +514,11 @@ export async function concluirLeiSeca(
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
-    .select("lei_principal")
+    .select("leis_principais")
     .eq("id", disciplinaId)
     .single();
 
-  if (disciplina?.lei_principal) {
+  if (disciplina?.leis_principais && disciplina.leis_principais.length > 0) {
     // "cronograma à parte": o progresso é da disciplina, não do assunto —
     // continua de onde parou toda vez que essa disciplina volta no ciclo,
     // independente de qual assunto foi estudado no dia. Não tem como o
@@ -484,11 +565,11 @@ export async function concluirJurisprudencia(
 
   const { data: disciplina } = await supabase
     .from("disciplinas")
-    .select("jurisprudencia_principal")
+    .select("jurisprudencias_principais")
     .eq("id", disciplinaId)
     .single();
 
-  if (disciplina?.jurisprudencia_principal) {
+  if (disciplina?.jurisprudencias_principais && disciplina.jurisprudencias_principais.length > 0) {
     // "cronograma à parte", espelhando lei_principal: o progresso é da
     // disciplina, não do assunto — continua de onde parou toda vez que essa
     // disciplina volta no ciclo, independente de qual assunto foi estudado
@@ -560,11 +641,15 @@ export async function concluirQuestoes(
     .update({ status: "concluida", concluida_em: new Date().toISOString() })
     .eq("id", sessaoId);
 
+  await tentarEncadearProximaSessao(supabase, user.id);
+
   // Não redireciona aqui: essa action pode ser chamada tanto por um submit
   // normal quanto pela fila de sincronização offline (ver
   // src/lib/sessao-offline/despachar.ts), e só o client sabe o momento
   // certo de navegar — depois de mostrar "sessão concluída" e confirmar que
-  // sincronizou. Ver sessao-runtime.tsx.
+  // sincronizou. Ver sessao-runtime.tsx. Se uma próxima sessão coube hoje
+  // (ver tentarEncadearProximaSessao), o client vai pra /sessao de novo e ela
+  // já está pronta; se não, /sessao redireciona sozinho pro Painel.
 }
 
 // Etapa própria da Sessão de Consolidação: marca como revisada toda a leva
@@ -646,6 +731,8 @@ export async function concluirQuestoesConsolidacao(
     .from("sessoes")
     .update({ status: "concluida", concluida_em: new Date().toISOString() })
     .eq("id", sessaoId);
+
+  await tentarEncadearProximaSessao(supabase, user.id);
 }
 
 // Etapa "Questões" de uma Sessão de Validação (Simulado por disciplina):
@@ -723,4 +810,6 @@ export async function concluirQuestoesValidacao(
     .from("sessoes")
     .update({ status: "concluida", concluida_em: new Date().toISOString() })
     .eq("id", sessaoId);
+
+  await tentarEncadearProximaSessao(supabase, user.id);
 }

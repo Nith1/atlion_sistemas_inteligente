@@ -75,7 +75,14 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           mutacaoSincronizada.tipo === "concluirQuestoesValidacao"
         ) {
           limparEstado(bundle.sessaoId);
-          router.push("/painel");
+          // Não sabe daqui se coube mais uma sessão hoje (ver
+          // tentarEncadearProximaSessao em sessao/actions.ts). router.push
+          // pra essa mesma URL seria um no-op (já estamos em /sessao) — quem
+          // busca o estado novo do servidor é router.refresh(): re-executa
+          // SessaoPage, que ou já encontra a próxima sessão pronta (o
+          // key={sessaoId} em page.tsx remonta este componente com o bundle
+          // novo) ou redireciona sozinho pro Painel se não tiver mais nada.
+          router.refresh();
         }
       }
     );
@@ -189,7 +196,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       sessaoId: bundle.sessaoId,
       disciplinaId: bundle.disciplinaId,
       assuntoId: etapaAtual.assuntoId,
-      usaLeiPrincipal: !!bundle.leiPrincipal,
+      usaLeiPrincipal: bundle.leisPrincipais.length > 0,
       progresso: ((formData.get("progresso") as string) ?? "").trim(),
       leiReferencia: ((formData.get("leiReferencia") as string) ?? "").trim(),
       reiniciar: formData.get("reiniciar") === "on",
@@ -204,7 +211,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       sessaoId: bundle.sessaoId,
       disciplinaId: bundle.disciplinaId,
       assuntoId: etapaAtual.assuntoId,
-      usaJurisprudenciaPrincipal: !!bundle.jurisprudenciaPrincipal,
+      usaJurisprudenciaPrincipal: bundle.jurisprudenciasPrincipais.length > 0,
       referencia: ((formData.get("referencia") as string) ?? "").trim(),
       progresso: ((formData.get("progresso") as string) ?? "").trim(),
       reiniciar: formData.get("reiniciar") === "on",
@@ -294,13 +301,13 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     // mesmo que ainda não tenha sincronizado (ver decisão de produto: fim
     // de sessão offline não espera a internet voltar pra confirmar).
     return (
-      <div className="flex flex-1 items-center justify-center px-6 py-16">
+      <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 sm:py-16">
         <div className="w-full max-w-md text-center">
           <h1 className="text-xl font-semibold text-foreground">Sessão concluída</h1>
           <p className="mt-2 text-sm text-foreground/60">
             {online
-              ? "Registrando e te levando pro Painel..."
-              : "Assim que a internet voltar, isso é registrado e você volta pro Painel automaticamente."}
+              ? "Registrando..."
+              : "Assim que a internet voltar, isso é registrado automaticamente."}
           </p>
         </div>
       </div>
@@ -451,11 +458,17 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
   }
 
   if (etapaAtual.tipo === "lei_seca") {
-    if (bundle.leiPrincipal) {
+    if (bundle.leisPrincipais.length > 0) {
       conteudo = (
         <form action={aoConcluirLeiSeca}>
           <p className="text-sm text-foreground/60">Leia:</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{bundle.leiPrincipal}</p>
+          <div className="mt-1 space-y-0.5">
+            {bundle.leisPrincipais.map((lei) => (
+              <p key={lei} className="text-xl font-semibold text-foreground">
+                {lei}
+              </p>
+            ))}
+          </div>
 
           <p className="mt-3 text-sm text-foreground/60">
             {estado.progressoLeiSecaDisciplina ? (
@@ -533,11 +546,17 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
   }
 
   if (etapaAtual.tipo === "jurisprudencia") {
-    if (bundle.jurisprudenciaPrincipal) {
+    if (bundle.jurisprudenciasPrincipais.length > 0) {
       conteudo = (
         <form action={aoConcluirJurisprudencia}>
           <p className="text-sm text-foreground/60">Revise:</p>
-          <p className="mt-1 text-xl font-semibold text-foreground">{bundle.jurisprudenciaPrincipal}</p>
+          <div className="mt-1 space-y-0.5">
+            {bundle.jurisprudenciasPrincipais.map((jurisprudencia) => (
+              <p key={jurisprudencia} className="text-xl font-semibold text-foreground">
+                {jurisprudencia}
+              </p>
+            ))}
+          </div>
 
           <p className="mt-3 text-sm text-foreground/60">
             {estado.progressoJurisprudenciaDisciplina ? (
@@ -677,10 +696,16 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             : "Revisão global da disciplina — resolva questões e registre o resultado por assunto:"}
         </p>
 
-        {bundle.leiPrincipal && (
+        {bundle.leisPrincipais.length > 0 && (
           <div className="mt-4 rounded-md border border-foreground/10 bg-foreground/3 p-3">
-            <p className="text-xs text-foreground/50">Lei</p>
-            <p className="text-sm font-medium text-foreground">{bundle.leiPrincipal}</p>
+            <p className="text-xs text-foreground/50">Lei{bundle.leisPrincipais.length > 1 ? "s" : ""}</p>
+            <div className="space-y-0.5">
+              {bundle.leisPrincipais.map((lei) => (
+                <p key={lei} className="text-sm font-medium text-foreground">
+                  {lei}
+                </p>
+              ))}
+            </div>
             {bundle.progressoLeiSecaDisciplina && (
               <p className="mt-1 text-xs text-foreground/60">
                 Você parou em: {bundle.progressoLeiSecaDisciplina}
@@ -689,10 +714,18 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           </div>
         )}
 
-        {bundle.jurisprudenciaPrincipal && (
+        {bundle.jurisprudenciasPrincipais.length > 0 && (
           <div className="mt-4 rounded-md border border-foreground/10 bg-foreground/3 p-3">
-            <p className="text-xs text-foreground/50">Jurisprudência</p>
-            <p className="text-sm font-medium text-foreground">{bundle.jurisprudenciaPrincipal}</p>
+            <p className="text-xs text-foreground/50">
+              Jurisprudência{bundle.jurisprudenciasPrincipais.length > 1 ? "s" : ""}
+            </p>
+            <div className="space-y-0.5">
+              {bundle.jurisprudenciasPrincipais.map((jurisprudencia) => (
+                <p key={jurisprudencia} className="text-sm font-medium text-foreground">
+                  {jurisprudencia}
+                </p>
+              ))}
+            </div>
             {bundle.progressoJurisprudenciaDisciplina && (
               <p className="mt-1 text-xs text-foreground/60">
                 Você parou em: {bundle.progressoJurisprudenciaDisciplina}
@@ -713,20 +746,20 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
                     </span>
                   )}
                 </p>
-                {!bundle.leiPrincipal && assunto.leiReferencia && (
+                {bundle.leisPrincipais.length === 0 && assunto.leiReferencia && (
                   <p className="mt-1 text-xs text-foreground/60">Lei: {assunto.leiReferencia}</p>
                 )}
-                {!bundle.leiPrincipal && assunto.progressoLeiSeca && (
+                {bundle.leisPrincipais.length === 0 && assunto.progressoLeiSeca && (
                   <p className="mt-1 text-xs text-foreground/60">
                     Você parou em: <span className="text-foreground/80">{assunto.progressoLeiSeca}</span>
                   </p>
                 )}
-                {!bundle.jurisprudenciaPrincipal && assunto.jurisprudenciaReferencia && (
+                {bundle.jurisprudenciasPrincipais.length === 0 && assunto.jurisprudenciaReferencia && (
                   <p className="mt-1 text-xs text-foreground/60">
                     Jurisprudência: {assunto.jurisprudenciaReferencia}
                   </p>
                 )}
-                {!bundle.jurisprudenciaPrincipal && assunto.progressoJurisprudencia && (
+                {bundle.jurisprudenciasPrincipais.length === 0 && assunto.progressoJurisprudencia && (
                   <p className="mt-1 text-xs text-foreground/60">
                     Você parou em: <span className="text-foreground/80">{assunto.progressoJurisprudencia}</span>
                   </p>
@@ -851,7 +884,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center px-6 py-16">
+    <div className="flex flex-1 items-center justify-center px-4 py-10 sm:px-6 sm:py-16">
       <div className="w-full max-w-md">
         <div className="mb-3 h-1 w-full rounded-full bg-foreground/10">
           <div

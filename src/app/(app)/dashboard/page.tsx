@@ -118,7 +118,7 @@ export default async function DashboardPage() {
     : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-6 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col px-4 py-10 sm:px-6 sm:py-16">
       <p className="text-sm text-foreground/60">{profile.concurso}</p>
       <h1 className="mt-1 text-2xl font-semibold text-foreground">Dashboard</h1>
 

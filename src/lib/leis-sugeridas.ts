@@ -1,9 +1,10 @@
-// Sugestões de "lei principal"/"jurisprudência principal" (cronograma à
-// parte, ver 0013_lei_principal_disciplina.sql e
-// 0018_jurisprudencia_principal_disciplina.sql) por disciplina jurídica —
-// mesma ideia de ASSUNTOS_SUGERIDOS, só que aqui o campo é único (a pessoa
-// escolhe uma lei pra ler de forma contínua, não várias). Chave = nome
-// exato de uma disciplina em DISCIPLINAS_SUGERIDAS.juridica.
+// Sugestões de "leis principais"/"jurisprudências principais" (cronograma à
+// parte, ver 0013_lei_principal_disciplina.sql,
+// 0018_jurisprudencia_principal_disciplina.sql e
+// 0019_leis_e_jurisprudencias_multiplas.sql) por disciplina jurídica — mesma
+// ideia de ASSUNTOS_SUGERIDOS, só que aqui a pessoa pode marcar mais de uma
+// pra ler de forma contínua. Chave = nome exato de uma disciplina em
+// DISCIPLINAS_SUGERIDAS.juridica.
 export const LEIS_SUGERIDAS: Record<string, string[]> = {
   "Direito Constitucional": ["Constituição Federal"],
   "Direito Administrativo": [

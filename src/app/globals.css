@@ -17,6 +17,20 @@
   --color-navy: var(--navy);
   --color-gold: var(--gold);
   --font-sans: var(--font-inter);
+
+  /* Escala tipográfica um degrau acima do padrão do Tailwind (~1-2px por
+     nível). A maioria dos usuários estuda pelo celular — texto pequeno
+     demais prejudica leitura prolongada. Não mexe em --spacing (padding,
+     gap, etc.), só no tamanho da fonte; os --text-*--line-height do
+     Tailwind são multiplicadores sem unidade, então acompanham o novo
+     tamanho automaticamente sem precisar ser redeclarados. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
+  --text-base: 1.0625rem;
+  --text-lg: 1.1875rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.625rem;
+  --text-3xl: 2rem;
 }
 
 @media (prefers-color-scheme: dark) {

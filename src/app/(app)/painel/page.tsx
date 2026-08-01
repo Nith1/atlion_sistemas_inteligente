@@ -68,7 +68,7 @@ export default async function PainelPage() {
   const temSessaoPronta = sessaoAtual && etapasPreview.length > 0;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-6 py-16">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col justify-center px-4 py-10 sm:px-6 sm:py-16">
       <p className="text-sm text-foreground/60">{profile.concurso}</p>
       <h1 className="mt-1 text-2xl font-semibold text-foreground sm:text-3xl">
         {temSessaoPronta ? "Sua preparação está pronta." : "Bem-vindo de volta."}
