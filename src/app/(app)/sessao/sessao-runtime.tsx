@@ -296,6 +296,10 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     enfileirarEEmSincronizar({ tipo: "retomarEtapa", etapaId: etapaAtual.id });
   }
 
+  async function aoVoltar() {
+    enfileirarEEmSincronizar({ tipo: "voltarEtapa", sessaoId: bundle.sessaoId });
+  }
+
   if (!etapaAtual) {
     // Última etapa (Questões) já foi concluída localmente — mostra na hora,
     // mesmo que ainda não tenha sincronizado (ver decisão de produto: fim
@@ -922,6 +926,16 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             <p className="mt-1 text-xs text-foreground/40">
               etapa {etapaIndex + 1} de {estado.etapas.length}
             </p>
+            {etapaIndex > 0 && (
+              <form action={aoVoltar} className="mt-1">
+                <SubmitButton
+                  pendingText="Voltando..."
+                  className="text-xs text-foreground/40 underline underline-offset-4 hover:text-foreground"
+                >
+                  ← Voltar etapa anterior
+                </SubmitButton>
+              </form>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Cronometro

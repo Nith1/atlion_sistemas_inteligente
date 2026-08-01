@@ -73,6 +73,7 @@ export type SessaoBundle = {
 export type MutacaoPendente =
   | { id: string; criadaEm: string; tipo: "pausarEtapa"; etapaId: string }
   | { id: string; criadaEm: string; tipo: "retomarEtapa"; etapaId: string }
+  | { id: string; criadaEm: string; tipo: "voltarEtapa"; sessaoId: string }
   | {
       id: string;
       criadaEm: string;

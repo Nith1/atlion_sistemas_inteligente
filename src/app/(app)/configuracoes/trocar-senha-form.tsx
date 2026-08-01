@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { alterarSenha } from "./actions";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export function TrocarSenhaForm() {
   const [estado, formAction, pending] = useActionState(alterarSenha, {});
@@ -10,9 +11,8 @@ export function TrocarSenhaForm() {
     <form action={formAction} className="space-y-3">
       <div>
         <label className="block text-xs text-foreground/50">Nova senha</label>
-        <input
+        <PasswordInput
           name="novaSenha"
-          type="password"
           required
           minLength={6}
           className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
@@ -20,9 +20,8 @@ export function TrocarSenhaForm() {
       </div>
       <div>
         <label className="block text-xs text-foreground/50">Confirmar nova senha</label>
-        <input
+        <PasswordInput
           name="confirmarSenha"
-          type="password"
           required
           minLength={6}
           className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"

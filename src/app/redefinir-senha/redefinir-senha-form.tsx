@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { redefinirSenha, type RedefinirSenhaState } from "./actions";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const initialState: RedefinirSenhaState = {};
 
@@ -14,10 +15,9 @@ export function RedefinirSenhaForm() {
         <label htmlFor="novaSenha" className="block text-sm font-medium">
           Nova senha
         </label>
-        <input
+        <PasswordInput
           id="novaSenha"
           name="novaSenha"
-          type="password"
           required
           minLength={6}
           className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
@@ -27,10 +27,9 @@ export function RedefinirSenhaForm() {
         <label htmlFor="confirmarSenha" className="block text-sm font-medium">
           Confirmar nova senha
         </label>
-        <input
+        <PasswordInput
           id="confirmarSenha"
           name="confirmarSenha"
-          type="password"
           required
           minLength={6}
           className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"

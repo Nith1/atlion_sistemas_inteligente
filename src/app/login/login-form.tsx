@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { signIn, type LoginState } from "./actions";
+import { PasswordInput } from "@/components/ui/password-input";
 
 const initialState: LoginState = { error: null };
 
@@ -32,10 +33,9 @@ export function LoginForm() {
             Esqueci minha senha
           </Link>
         </div>
-        <input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           required
           className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
         />

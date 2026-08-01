@@ -69,6 +69,32 @@ export function aplicarMutacaoLocal(
       return { ...estado, etapas, atualizadoEm: new Date(agoraMs).toISOString() };
     }
 
+    // Espelha voltarEtapa() de sessao/actions.ts: reabre a etapa anterior
+    // (zera o "concluída" dela e liga um cronômetro novo) e limpa o
+    // cronômetro da que tava atual, já que ela deixa de ser a etapa ativa.
+    case "voltarEtapa": {
+      const indiceAtual = estado.etapas.findIndex((e) => !e.concluida);
+      if (indiceAtual <= 0) return estado;
+
+      const etapas = estado.etapas.map((e, i) => {
+        if (i === indiceAtual) {
+          return { ...e, iniciadaEm: null, tempoAcumuladoSegundos: 0 };
+        }
+        if (i === indiceAtual - 1) {
+          return {
+            ...e,
+            concluida: false,
+            tempoGastoSegundos: null,
+            tempoAcumuladoSegundos: 0,
+            iniciadaEm: new Date(agoraMs).toISOString(),
+          };
+        }
+        return e;
+      });
+
+      return { ...estado, etapas, atualizadoEm: new Date(agoraMs).toISOString() };
+    }
+
     case "concluirAtivacaoCognitiva":
     case "concluirDescanso":
     case "concluirConsolidacao":

@@ -389,6 +389,51 @@ async function avancarEtapa(
   revalidatePath("/sessao");
 }
 
+// Reabre a etapa anterior pra edição — ex: o aluno digitou errado o
+// "até onde li" ou o número de acertos/erros e quer corrigir sem perder o
+// resto da sessão. Desfaz o "concluída" dela (ganha um cronômetro novo, como
+// se tivesse acabado de virar a atual de novo) e zera o cronômetro da etapa
+// que tava atual, pra ela não carregar tempo parado quando for refeita mais
+// tarde. Só funciona dentro da mesma sessão: se não tem etapa concluída
+// antes (primeira etapa) ou a sessão já fechou de vez (Questões concluída —
+// nesse ponto a tela nem mostra mais um "Voltar", já que não sobra etapa
+// atual pra exibir o botão), não faz nada.
+export async function voltarEtapa(sessaoId: string) {
+  const { supabase } = await requireUser();
+
+  const { data: etapas } = await supabase
+    .from("sessao_etapas")
+    .select("id, ordem, concluida")
+    .eq("sessao_id", sessaoId)
+    .order("ordem", { ascending: true });
+
+  if (!etapas) return;
+
+  const indiceAtual = etapas.findIndex((e) => !e.concluida);
+  if (indiceAtual <= 0) return;
+
+  const atual = etapas[indiceAtual];
+  const anterior = etapas[indiceAtual - 1];
+
+  await supabase
+    .from("sessao_etapas")
+    .update({ iniciada_em: null, tempo_acumulado_segundos: 0, pausada: false })
+    .eq("id", atual.id);
+
+  await supabase
+    .from("sessao_etapas")
+    .update({
+      concluida: false,
+      concluida_em: null,
+      iniciada_em: new Date().toISOString(),
+      tempo_acumulado_segundos: 0,
+      pausada: false,
+    })
+    .eq("id", anterior.id);
+
+  revalidatePath("/sessao");
+}
+
 export async function concluirAtivacaoCognitiva(
   etapaId: string,
   sessaoId: string,

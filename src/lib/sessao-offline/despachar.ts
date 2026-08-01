@@ -15,6 +15,7 @@ import {
   continuarEstudoDepois,
   pausarEtapa,
   retomarEtapa,
+  voltarEtapa,
 } from "@/app/(app)/sessao/actions";
 import type { MutacaoPendente } from "./tipos";
 
@@ -40,6 +41,9 @@ export function despacharMutacao(mutacao: MutacaoPendente): Promise<void> {
 
     case "retomarEtapa":
       return rodarNaTransicao(() => retomarEtapa(mutacao.etapaId));
+
+    case "voltarEtapa":
+      return rodarNaTransicao(() => voltarEtapa(mutacao.sessaoId));
 
     case "concluirAtivacaoCognitiva": {
       const formData = new FormData();
