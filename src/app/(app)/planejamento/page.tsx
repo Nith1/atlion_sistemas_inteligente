@@ -335,106 +335,108 @@ export default async function PlanejamentoPage() {
                   </div>
                 )}
 
-                <p className="text-xs font-semibold uppercase tracking-wide text-foreground/40">Assuntos</p>
+                <div className="rounded-md border border-foreground/15 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-foreground/40">Assuntos</p>
 
-                {totalAssuntos === 0 && (
-                  <p className="text-sm text-foreground/50">
-                    Nenhum assunto ainda — cole o edital ou o índice do livro logo abaixo
-                    {sugestoesBase.length > 0 ? ", ou escolha um dos assuntos sugeridos" : ""} pra
-                    começar rápido.
-                  </p>
-                )}
+                  {totalAssuntos === 0 && (
+                    <p className="mt-2 text-sm text-foreground/50">
+                      Nenhum assunto ainda — cole o edital ou o índice do livro logo abaixo
+                      {sugestoesBase.length > 0 ? ", ou escolha um dos assuntos sugeridos" : ""} pra
+                      começar rápido.
+                    </p>
+                  )}
 
-                {totalAssuntos > 0 && (
-                  <>
-                    <div className="flex justify-end">
-                      <form action={removerTodosAssuntos.bind(null, disciplina.id)}>
-                        <ConfirmButton
-                          mensagem={`Remover todos os ${totalAssuntos} assunto(s) de ${disciplina.nome}? Essa ação não pode ser desfeita.`}
-                          className="text-xs text-foreground/40 hover:text-red-600"
-                        >
-                          remover todos os assuntos
-                        </ConfirmButton>
-                      </form>
+                  {totalAssuntos > 0 && (
+                    <div className="mt-2">
+                      <div className="flex justify-end">
+                        <form action={removerTodosAssuntos.bind(null, disciplina.id)}>
+                          <ConfirmButton
+                            mensagem={`Remover todos os ${totalAssuntos} assunto(s) de ${disciplina.nome}? Essa ação não pode ser desfeita.`}
+                            className="text-xs text-foreground/40 hover:text-red-600"
+                          >
+                            remover todos os assuntos
+                          </ConfirmButton>
+                        </form>
+                      </div>
+                      {renderAssuntos(disciplina.assuntos, disciplina.id, null, 0)}
                     </div>
-                    {renderAssuntos(disciplina.assuntos, disciplina.id, null, 0)}
-                  </>
-                )}
+                  )}
 
-                <form
-                  action={adicionarAssunto.bind(null, disciplina.id)}
-                  className="flex flex-col gap-2 pt-2 sm:flex-row"
-                >
-                  <input
-                    name="nome"
-                    type="text"
-                    placeholder="Novo assunto"
-                    required
-                    className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-                  />
-                  <button
-                    type="submit"
-                    className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-                  >
-                    Adicionar assunto
-                  </button>
-                </form>
-
-                {sugestoesBase.length > 0 && (
-                  <details className="pt-1" open={totalAssuntos === 0}>
-                    <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
-                      ver assuntos sugeridos
-                    </summary>
-                    <div className="mt-2 flex flex-wrap gap-1.5">
-                      {sugestoesBase.map((nome) => {
-                        const selecionado = disciplina.assuntos.some(
-                          (a) => a.parent_id === null && a.nome.toLowerCase() === nome.toLowerCase()
-                        );
-                        return (
-                          <form key={nome} action={alternarSugestaoAssunto.bind(null, disciplina.id, nome)}>
-                            <button
-                              type="submit"
-                              className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                                selecionado
-                                  ? "border-gold bg-gold/10 text-foreground"
-                                  : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
-                              }`}
-                            >
-                              {selecionado && "✓ "}
-                              {nome}
-                            </button>
-                          </form>
-                        );
-                      })}
-                    </div>
-                  </details>
-                )}
-
-                <details className="pt-1" open={totalAssuntos === 0}>
-                  <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
-                    colar vários assuntos de uma vez
-                  </summary>
                   <form
-                    action={adicionarAssuntosEmLote.bind(null, disciplina.id)}
-                    className="mt-2 space-y-2"
+                    action={adicionarAssunto.bind(null, disciplina.id)}
+                    className="flex flex-col gap-2 pt-2 sm:flex-row"
                   >
-                    <textarea
-                      name="texto"
-                      rows={5}
+                    <input
+                      name="nome"
+                      type="text"
+                      placeholder="Novo assunto"
                       required
-                      placeholder={
-                        "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...) — os subtópicos (1.1, 1.2) ficam aninhados dentro do assunto principal. Ex:\n1 Poder constituinte. 1.1 Fundamentos do poder constituinte. 2 Direitos fundamentais."
-                      }
-                      className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                      className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
                     />
                     <button
                       type="submit"
-                      className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+                      className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
                     >
-                      Adicionar todos
+                      Adicionar assunto
                     </button>
                   </form>
-                </details>
+
+                  {sugestoesBase.length > 0 && (
+                    <details className="pt-1" open={totalAssuntos === 0}>
+                      <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
+                        ver assuntos sugeridos
+                      </summary>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {sugestoesBase.map((nome) => {
+                          const selecionado = disciplina.assuntos.some(
+                            (a) => a.parent_id === null && a.nome.toLowerCase() === nome.toLowerCase()
+                          );
+                          return (
+                            <form key={nome} action={alternarSugestaoAssunto.bind(null, disciplina.id, nome)}>
+                              <button
+                                type="submit"
+                                className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                                  selecionado
+                                    ? "border-gold bg-gold/10 text-foreground"
+                                    : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                                }`}
+                              >
+                                {selecionado && "✓ "}
+                                {nome}
+                              </button>
+                            </form>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  )}
+
+                  <details className="pt-1" open={totalAssuntos === 0}>
+                    <summary className="cursor-pointer text-xs text-foreground/50 hover:text-foreground">
+                      colar vários assuntos de uma vez
+                    </summary>
+                    <form
+                      action={adicionarAssuntosEmLote.bind(null, disciplina.id)}
+                      className="mt-2 space-y-2"
+                    >
+                      <textarea
+                        name="texto"
+                        rows={5}
+                        required
+                        placeholder={
+                          "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...) — os subtópicos (1.1, 1.2) ficam aninhados dentro do assunto principal. Ex:\n1 Poder constituinte. 1.1 Fundamentos do poder constituinte. 2 Direitos fundamentais."
+                        }
+                        className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+                      >
+                        Adicionar todos
+                      </button>
+                    </form>
+                  </details>
+                </div>
               </div>
             </details>
           );

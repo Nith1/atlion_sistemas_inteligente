@@ -672,153 +672,155 @@ function PainelAssuntosDisciplina({
         </div>
       )}
 
-      <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-foreground/40">Assuntos</p>
+      <div className="mt-3 rounded-md border border-foreground/15 p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-foreground/40">Assuntos</p>
 
-      {topicos.length > 0 && (
-        <div className="mt-2 space-y-1.5">
-          {topicos.map((topico, indice) => (
-            <div
-              key={indice}
-              style={{ marginLeft: (topico.nivel - 1) * 16 }}
-              className="flex items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/3 px-3 py-1.5 text-sm"
-            >
-              <span className="text-foreground">{topico.nome}</span>
+        {topicos.length > 0 && (
+          <div className="mt-2 space-y-1.5">
+            {topicos.map((topico, indice) => (
+              <div
+                key={indice}
+                style={{ marginLeft: (topico.nivel - 1) * 16 }}
+                className="flex items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/3 px-3 py-1.5 text-sm"
+              >
+                <span className="text-foreground">{topico.nome}</span>
+                <button
+                  type="button"
+                  onClick={() => remover(indice)}
+                  aria-label={`Remover ${topico.nome}`}
+                  className="shrink-0 text-foreground/40 hover:text-red-500"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3 flex gap-2">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              value={nomeNovo}
+              onChange={(e) => {
+                setNomeNovo(e.target.value);
+                setSugestaoAberta(true);
+              }}
+              onFocus={() => setSugestaoAberta(true)}
+              onBlur={() => setTimeout(() => setSugestaoAberta(false), 120)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  adicionarUm();
+                }
+              }}
+              placeholder="Novo assunto"
+              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+            />
+            {sugestaoAberta && sugestoesFiltradas.length > 0 && (
+              <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-foreground/15 bg-background shadow-lg">
+                {sugestoesFiltradas.map((s) => (
+                  <li key={s}>
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => {
+                        alternarSugestao(s);
+                        setNomeNovo("");
+                        setSugestaoAberta(false);
+                      }}
+                      className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-gold/10"
+                    >
+                      {s}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={adicionarUm}
+            className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+          >
+            Adicionar
+          </button>
+        </div>
+
+        {sugestoesBase.length > 0 && (
+          <div className="mt-2">
+            {mostrarComuns ? (
+              <div className="flex flex-wrap gap-1.5">
+                {sugestoesBase.map((nome) => {
+                  const selecionado = topicos.some((t) => t.nome.toLowerCase() === nome.toLowerCase());
+                  return (
+                    <button
+                      type="button"
+                      key={nome}
+                      onClick={() => alternarSugestao(nome)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                        selecionado
+                          ? "border-gold bg-gold/10 text-foreground"
+                          : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
+                      }`}
+                    >
+                      {selecionado && "✓ "}
+                      {nome}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => remover(indice)}
-                aria-label={`Remover ${topico.nome}`}
-                className="shrink-0 text-foreground/40 hover:text-red-500"
+                onClick={() => setMostrarComuns(true)}
+                className="text-xs text-foreground/50 hover:text-foreground"
               >
-                ×
+                ver assuntos comuns dessa disciplina
               </button>
-            </div>
-          ))}
-        </div>
-      )}
+            )}
+          </div>
+        )}
 
-      <div className="mt-3 flex gap-2">
-        <div className="relative flex-1">
-          <input
-            type="text"
-            value={nomeNovo}
-            onChange={(e) => {
-              setNomeNovo(e.target.value);
-              setSugestaoAberta(true);
-            }}
-            onFocus={() => setSugestaoAberta(true)}
-            onBlur={() => setTimeout(() => setSugestaoAberta(false), 120)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                adicionarUm();
-              }
-            }}
-            placeholder="Novo assunto"
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-          />
-          {sugestaoAberta && sugestoesFiltradas.length > 0 && (
-            <ul className="absolute z-10 mt-1 max-h-52 w-full overflow-y-auto rounded-md border border-foreground/15 bg-background shadow-lg">
-              {sugestoesFiltradas.map((s) => (
-                <li key={s}>
-                  <button
-                    type="button"
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => {
-                      alternarSugestao(s);
-                      setNomeNovo("");
-                      setSugestaoAberta(false);
-                    }}
-                    className="block w-full px-3 py-2 text-left text-sm text-foreground hover:bg-gold/10"
-                  >
-                    {s}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={adicionarUm}
-          className="shrink-0 rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-        >
-          Adicionar
-        </button>
-      </div>
-
-      {sugestoesBase.length > 0 && (
         <div className="mt-2">
-          {mostrarComuns ? (
-            <div className="flex flex-wrap gap-1.5">
-              {sugestoesBase.map((nome) => {
-                const selecionado = topicos.some((t) => t.nome.toLowerCase() === nome.toLowerCase());
-                return (
-                  <button
-                    type="button"
-                    key={nome}
-                    onClick={() => alternarSugestao(nome)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                      selecionado
-                        ? "border-gold bg-gold/10 text-foreground"
-                        : "border-foreground/20 text-foreground/60 hover:border-foreground/40"
-                    }`}
-                  >
-                    {selecionado && "✓ "}
-                    {nome}
-                  </button>
-                );
-              })}
+          {mostrarLote ? (
+            <div className="space-y-2">
+              <textarea
+                value={textoLote}
+                onChange={(e) => setTextoLote(e.target.value)}
+                rows={4}
+                placeholder={
+                  "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...) — os subtópicos ficam aninhados dentro do assunto principal."
+                }
+                className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+              />
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={adicionarLote}
+                  className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+                >
+                  Adicionar todos
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMostrarLote(false)}
+                  className="text-sm text-foreground/50 hover:text-foreground"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           ) : (
             <button
               type="button"
-              onClick={() => setMostrarComuns(true)}
+              onClick={() => setMostrarLote(true)}
               className="text-xs text-foreground/50 hover:text-foreground"
             >
-              ver assuntos comuns dessa disciplina
+              colar vários assuntos de uma vez
             </button>
           )}
         </div>
-      )}
-
-      <div className="mt-2">
-        {mostrarLote ? (
-          <div className="space-y-2">
-            <textarea
-              value={textoLote}
-              onChange={(e) => setTextoLote(e.target.value)}
-              rows={4}
-              placeholder={
-                "Cole o índice do livro, um assunto por linha, ou o trecho do edital direto (com numeração 1, 1.1, 2...) — os subtópicos ficam aninhados dentro do assunto principal."
-              }
-              className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-            />
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={adicionarLote}
-                className="rounded-md bg-navy px-3 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
-              >
-                Adicionar todos
-              </button>
-              <button
-                type="button"
-                onClick={() => setMostrarLote(false)}
-                className="text-sm text-foreground/50 hover:text-foreground"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setMostrarLote(true)}
-            className="text-xs text-foreground/50 hover:text-foreground"
-          >
-            colar vários assuntos de uma vez
-          </button>
-        )}
       </div>
     </details>
   );
