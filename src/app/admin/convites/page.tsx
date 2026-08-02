@@ -2,12 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ConviteForm } from "./convite-form";
-
-function statusConvite(convite: { used_at: string | null; expires_at: string }) {
-  if (convite.used_at) return "Usado";
-  if (new Date(convite.expires_at) <= new Date()) return "Expirado";
-  return "Pendente";
-}
+import { ConvitesLista } from "./convites-lista";
 
 export default async function AdminConvitesPage() {
   const supabase = await createClient();
@@ -25,7 +20,7 @@ export default async function AdminConvitesPage() {
 
   const { data: convites } = await supabase
     .from("invites")
-    .select("id, email, created_at, expires_at, used_at")
+    .select("id, email, token, created_at, expires_at, used_at, revoked_at")
     .order("created_at", { ascending: false });
 
   return (
@@ -47,16 +42,8 @@ export default async function AdminConvitesPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground/50">
           Convites gerados
         </h2>
-        <div className="mt-3 divide-y divide-foreground/10 border-t border-foreground/10">
-          {(convites ?? []).map((convite) => (
-            <div key={convite.id} className="flex items-center justify-between py-3 text-sm">
-              <span>{convite.email}</span>
-              <span className="text-foreground/60">{statusConvite(convite)}</span>
-            </div>
-          ))}
-          {(convites ?? []).length === 0 && (
-            <p className="py-3 text-sm text-foreground/50">Nenhum convite ainda.</p>
-          )}
+        <div className="mt-3">
+          <ConvitesLista convites={convites ?? []} />
         </div>
       </div>
     </main>
