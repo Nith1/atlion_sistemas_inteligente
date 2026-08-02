@@ -1,9 +1,11 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarRateLimit } from "@/lib/rate-limit";
 
-export type ConviteState = { error: string | null; success: boolean };
+export type ConviteState = { error: string | null };
 
 export async function resgatarConvite(
   token: string,
@@ -15,7 +17,7 @@ export async function resgatarConvite(
 
   const podeTentar = await verificarRateLimit("signup", email);
   if (!podeTentar) {
-    return { error: "Muitas tentativas. Aguarde alguns minutos e tente de novo.", success: false };
+    return { error: "Muitas tentativas. Aguarde alguns minutos e tente de novo." };
   }
 
   const supabase = await createClient();
@@ -27,30 +29,44 @@ export async function resgatarConvite(
     .single<{ email: string | null; valido: boolean }>();
 
   if (erroConvite || !convite?.valido || convite.email !== email) {
-    return { error: "Esse convite não é mais válido.", success: false };
+    return { error: "Esse convite não é mais válido." };
   }
 
-  const { data: signUpData, error } = await supabase.auth.signUp({
+  // cria via Admin API (service_role), não via auth.signUp() público — o
+  // signUp() é uma API pública do Supabase que qualquer um pode chamar
+  // direto com a anon key, ignorando completamente a validação de convite
+  // acima. A Admin API só existe no servidor (service_role nunca chega no
+  // cliente) e é a única forma de conta ser criada depois que o self-signup
+  // for desligado no painel do Supabase. email_confirm: true porque quem
+  // recebeu o link do convite já provou que é dono do email — não precisa
+  // de uma segunda confirmação por email.
+  const admin = createAdminClient();
+  const { data: criado, error: erroCriacao } = await admin.auth.admin.createUser({
     email,
     password,
-    options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/confirm`,
-    },
+    email_confirm: true,
   });
 
-  if (error || !signUpData.user) {
-    return { error: error?.message ?? "Não foi possível criar a conta.", success: false };
+  if (erroCriacao || !criado.user) {
+    return { error: "Não foi possível criar a conta. Se você já tem uma conta com esse email, tente fazer login." };
   }
 
   const { data: resgatado } = await supabase.rpc("resgatar_convite", {
     p_token: token,
     p_email: email,
-    p_user_id: signUpData.user.id,
+    p_user_id: criado.user.id,
   });
 
   if (!resgatado) {
-    return { error: "Esse convite já foi usado ou expirou.", success: false };
+    return { error: "Esse convite já foi usado ou expirou." };
   }
 
-  return { error: null, success: true };
+  const { error: erroLogin } = await supabase.auth.signInWithPassword({ email, password });
+  if (erroLogin) {
+    // conta criada e convite resgatado — só o login automático falhou, manda
+    // pro login normal em vez de deixar a pessoa travada na tela de convite
+    redirect("/login");
+  }
+
+  redirect("/onboarding");
 }

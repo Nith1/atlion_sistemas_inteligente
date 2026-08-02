@@ -2,16 +2,30 @@ import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
+// titulo é sempre texto puro (nunca HTML) em todo call site — escapa sempre.
+// corpoHtml continua responsabilidade de quem chama montar com segurança
+// (ver escapeHtml abaixo pra quem monta a partir de texto livre de usuário,
+// como o broadcast do admin em admin/lista-de-espera/actions.ts).
+export function escapeHtml(texto: string): string {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // mesma identidade visual do template de auth em
 // supabase/email-templates/confirm-signup.html — mantém os emails da
 // aplicação consistentes com os que o Supabase Auth já dispara.
 export function renderEmailHtml({ titulo, corpoHtml }: { titulo: string; corpoHtml: string }) {
+  const tituloSeguro = escapeHtml(titulo);
   return `<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${titulo} — ATLION</title>
+    <title>${tituloSeguro} — ATLION</title>
   </head>
   <body style="margin: 0; padding: 0; background-color: #fafaf8; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color: #fafaf8; padding: 40px 16px;">
@@ -26,7 +40,7 @@ export function renderEmailHtml({ titulo, corpoHtml }: { titulo: string; corpoHt
             <tr>
               <td style="padding: 28px 40px 32px 40px;">
                 <h1 style="margin: 0 0 16px 0; font-size: 22px; line-height: 1.3; font-weight: 600; color: #142440;">
-                  ${titulo}
+                  ${tituloSeguro}
                 </h1>
                 ${corpoHtml}
               </td>

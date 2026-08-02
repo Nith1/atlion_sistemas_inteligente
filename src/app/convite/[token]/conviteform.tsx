@@ -4,20 +4,11 @@ import { useActionState } from "react";
 import { resgatarConvite, type ConviteState } from "./actions";
 import { PasswordInput } from "@/components/ui/password-input";
 
-const initialState: ConviteState = { error: null, success: false };
+const initialState: ConviteState = { error: null };
 
 export function ConviteForm({ token, email }: { token: string; email: string }) {
   const acaoComConvite = resgatarConvite.bind(null, token, email);
   const [state, formAction, pending] = useActionState(acaoComConvite, initialState);
-
-  if (state.success) {
-    return (
-      <div className="mt-8 rounded-lg border border-gold/30 bg-gold/5 p-4 text-sm text-foreground">
-        Confirme seu email — mandamos um link de confirmação. Depois de
-        confirmar, você já entra direto no onboarding.
-      </div>
-    );
-  }
 
   return (
     <form action={formAction} className="mt-8 space-y-4">

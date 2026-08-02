@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { enviarEmail, renderEmailHtml } from "@/lib/email";
+import { enviarEmail, renderEmailHtml, escapeHtml } from "@/lib/email";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -45,12 +45,15 @@ export async function enviarAvisoListaEspera(
     return { error: "Não deu pra carregar a lista de espera.", resultado: null };
   }
 
+  // mensagem é texto livre digitado pelo admin — escapa antes de virar HTML
+  // (hoje só admin autenticado aciona isso, mas essa função tende a ser
+  // reaproveitada depois; não custa nada escapar sempre)
   const corpoHtml = mensagem
     .split("\n")
     .filter((linha) => linha.trim().length > 0)
     .map(
       (linha) =>
-        `<p style="margin: 0 0 12px 0; font-size: 15px; line-height: 1.6; color: #4a5568;">${linha}</p>`
+        `<p style="margin: 0 0 12px 0; font-size: 15px; line-height: 1.6; color: #4a5568;">${escapeHtml(linha)}</p>`
     )
     .join("");
 
