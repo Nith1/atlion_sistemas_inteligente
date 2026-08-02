@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { verificarRateLimit } from "@/lib/rate-limit";
+import { TERMOS_VERSAO } from "@/lib/termos";
 
 export type ConviteState = { error: string | null };
 
@@ -14,6 +15,12 @@ export async function resgatarConvite(
   formData: FormData
 ): Promise<ConviteState> {
   const password = formData.get("password") as string;
+
+  // caixinha de aceite obrigatória — checa server-side, nunca confia só no
+  // `required` do HTML (nada impede alguém de mandar o form sem o campo)
+  if (formData.get("aceiteTermos") !== "on") {
+    return { error: "Precisa aceitar os Termos de Uso e a Política de Privacidade pra continuar." };
+  }
 
   const podeTentar = await verificarRateLimit("signup", email);
   if (!podeTentar) {
@@ -50,6 +57,15 @@ export async function resgatarConvite(
   if (erroCriacao || !criado.user) {
     return { error: "Não foi possível criar a conta. Se você já tem uma conta com esse email, tente fazer login." };
   }
+
+  // registro de consentimento (LGPD): grava quando e qual versão dos termos
+  // foi aceita, não só o fato de ter marcado a caixinha. Via admin client
+  // (não depende de sessão, que ainda nem existe nesse ponto) — fica gravado
+  // mesmo que o signInWithPassword logo abaixo falhe por algum motivo.
+  await admin
+    .from("profiles")
+    .update({ termos_aceitos_em: new Date().toISOString(), termos_versao: TERMOS_VERSAO })
+    .eq("id", criado.user.id);
 
   const { data: resgatado } = await supabase.rpc("resgatar_convite", {
     p_token: token,

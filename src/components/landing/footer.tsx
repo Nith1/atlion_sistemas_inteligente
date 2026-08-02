@@ -28,10 +28,24 @@ export function LandingFooter() {
           <Link href="/login" className="transition hover:text-[#F5F3EF]">
             Entrar
           </Link>
+          <a href="mailto:contato@atlionestudos.com.br" className="transition hover:text-[#F5F3EF]">
+            contato@atlionestudos.com.br
+          </a>
         </nav>
       </div>
 
-      <p className="mt-10 text-center text-xs text-[#AAB4C3]/50">© {ano} ATLION. Todos os direitos reservados.</p>
+      <div className="mt-10 flex flex-col items-center gap-3 text-center">
+        <nav className="flex items-center gap-4 text-xs text-[#AAB4C3]/70">
+          <Link href="/termos-de-uso" className="transition hover:text-[#F5F3EF]">
+            Termos de Uso
+          </Link>
+          <span aria-hidden>·</span>
+          <Link href="/politica-de-privacidade" className="transition hover:text-[#F5F3EF]">
+            Política de Privacidade
+          </Link>
+        </nav>
+        <p className="text-xs text-[#AAB4C3]/50">© {ano} ATLION. Todos os direitos reservados.</p>
+      </div>
     </footer>
   );
 }

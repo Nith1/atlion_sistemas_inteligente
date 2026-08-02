@@ -64,6 +64,13 @@ export function Faq() {
       </ScrollReveal>
       <ScrollReveal delayMs={80}>
         <h2 className="mt-5 text-3xl font-semibold tracking-tight text-[#F5F3EF] sm:text-4xl">Ainda com dúvidas?</h2>
+        <p className="mt-3 text-sm text-[#AAB4C3]">
+          Não achou a resposta aqui? Manda um email pra{" "}
+          <a href="mailto:contato@atlionestudos.com.br" className="text-[#F5F3EF] underline underline-offset-4">
+            contato@atlionestudos.com.br
+          </a>
+          .
+        </p>
       </ScrollReveal>
 
       <div className="mt-14 divide-y divide-white/[0.07] border-t border-white/[0.07]">

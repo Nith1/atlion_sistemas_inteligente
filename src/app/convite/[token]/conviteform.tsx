@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { resgatarConvite, type ConviteState } from "./actions";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -29,6 +30,26 @@ export function ConviteForm({ token, email }: { token: string; email: string }) 
           minLength={6}
           className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
         />
+      </div>
+      <div className="flex items-start gap-2">
+        <input
+          id="aceiteTermos"
+          name="aceiteTermos"
+          type="checkbox"
+          required
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-foreground/30"
+        />
+        <label htmlFor="aceiteTermos" className="text-sm text-foreground/70">
+          Li e concordo com os{" "}
+          <Link href="/termos-de-uso" target="_blank" className="underline underline-offset-4">
+            Termos de Uso
+          </Link>{" "}
+          e a{" "}
+          <Link href="/politica-de-privacidade" target="_blank" className="underline underline-offset-4">
+            Política de Privacidade
+          </Link>
+          .
+        </label>
       </div>
       {state.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button
