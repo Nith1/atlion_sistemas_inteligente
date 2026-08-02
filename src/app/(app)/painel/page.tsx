@@ -33,6 +33,16 @@ export default async function PainelPage() {
     .eq("status", "concluida")
     .gte("concluida_em", inicioHoje.toISOString());
 
+  // primeira vez na plataforma: nunca concluiu sessão nenhuma (não é sobre
+  // hoje). Some sozinho depois da primeira sessão — sem precisar de botão
+  // de fechar nem de guardar flag nova em lugar nenhum.
+  const { count: sessoesConcluidasSempre } = await supabase
+    .from("sessoes")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("status", "concluida");
+  const primeiraVez = (sessoesConcluidasSempre ?? 0) === 0;
+
   const sessoesPrevisto = sessoesPrevistasHoje(profile.horas_liquidas_dia);
 
   const { data: sessaoAtual } = await supabase
@@ -77,6 +87,11 @@ export default async function PainelPage() {
         <p className="mt-2 text-sm text-foreground/60">
           Sua próxima sessão já foi organizada pelo Motor de Aprendizagem.
           {sessoesPrevisto > 1 && ` Sessão ${(sessoesFeitasHoje ?? 0) + 1} de ${sessoesPrevisto} hoje.`}
+        </p>
+      )}
+      {primeiraVez && (
+        <p className="mt-2 text-sm text-foreground/50">
+          Você não precisa decidir nada daqui pra frente — só clicar e estudar. A ATLION organiza o resto sozinha.
         </p>
       )}
 

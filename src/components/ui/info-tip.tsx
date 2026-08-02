@@ -1,12 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+
+const CHAVE_VISTO = (id: string) => `atlion-infotip-visto-${id}`;
 
 // Tooltip próprio em vez do atributo `title` nativo — `title` só aparece no
 // hover do mouse e não funciona em telas de toque (mobile/tablet), onde não
 // existe "passar por cima". Aqui funciona por toque/clique nos dois casos.
-export function InfoTip({ texto }: { texto: string }) {
+//
+// `id` + `autoAbrir`: pra orientações importantes demais pra depender da
+// pessoa notar a bolinha "?" sozinha (ex: metodologia da sessão de estudo)
+// — abre sozinho na primeira vez que aparece pra esse navegador, e nunca
+// mais depois disso (guardado no localStorage, não precisa de tabela nova).
+// Continua funcionando por clique normalmente em qualquer caso.
+export function InfoTip({ texto, id, autoAbrir }: { texto: string; id?: string; autoAbrir?: boolean }) {
   const [aberto, setAberto] = useState(false);
+
+  useEffect(() => {
+    if (!autoAbrir || !id) return;
+    if (window.localStorage.getItem(CHAVE_VISTO(id))) return;
+    window.localStorage.setItem(CHAVE_VISTO(id), "1");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setAberto(true);
+  }, [autoAbrir, id]);
 
   return (
     <span className="relative inline-flex">

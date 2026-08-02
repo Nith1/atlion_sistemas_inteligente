@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Cronometro, TempoAcumulado } from "./cronometro";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { InfoTip } from "@/components/ui/info-tip";
 import { ETAPA_LABELS, MINUTOS_SUGERIDOS, SUGERIDO_LABEL } from "@/lib/etapas";
 import { LIMITE_CRONOMETRO_SEGUNDOS } from "@/lib/tempo";
 import { carregarEstado, limparEstado, salvarEstado } from "@/lib/sessao-offline/armazenamento";
@@ -11,6 +12,12 @@ import { criarControladorFila, enfileirar } from "@/lib/sessao-offline/fila";
 import { despacharMutacao } from "@/lib/sessao-offline/despachar";
 import { useStatusOnline } from "@/lib/sessao-offline/usar-status-online";
 import type { MutacaoSemId, SessaoBundle, SessaoLocalState } from "@/lib/sessao-offline/tipos";
+
+// Ordem de prioridade pra buscar questões fora da plataforma (a ATLION não
+// é banco de questões — isso orienta onde/como procurar): novas do cargo →
+// novas de cargos semelhantes → já erradas → todas de novo, do início.
+const FILTRO_QUESTOES_TEXTO =
+  "Filtre primeiro por cargo e, se já souber, por banca. Sempre questões novas. Quando acabarem as novas do seu cargo, passe pra novas de cargos semelhantes, mantendo o filtro de banca. Só quando essas também acabarem, filtre pelas que você errou. E quando essas também acabarem, aí sim pode repetir todas as questões de novo, do início.";
 
 const CONSOLIDACAO_INSTRUCAO: Record<string, string> = {
   exercicios: "Resolva exercícios sobre esse assunto no seu material.",
@@ -329,34 +336,50 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     const camposDesempenho = (
       <div className="mt-4 space-y-3">
         {mostrarQuestoes && (
-          <div className="flex gap-3">
-            <div className="flex-1">
-              <label className="block text-xs text-foreground/50">Acertos</label>
-              <input
-                name="certas"
-                type="number"
-                min={0}
-                defaultValue={0}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-              />
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-foreground/50">Questões</span>
+              <InfoTip texto={FILTRO_QUESTOES_TEXTO} id="ativacao-filtro-questoes" autoAbrir />
             </div>
-            <div className="flex-1">
-              <label className="block text-xs text-foreground/50">Erros</label>
-              <input
-                name="erradas"
-                type="number"
-                min={0}
-                defaultValue={0}
-                className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
-              />
+            <div className="mt-1 flex gap-3">
+              <div className="flex-1">
+                <label className="block text-xs text-foreground/50">Acertos</label>
+                <input
+                  name="certas"
+                  type="number"
+                  min={0}
+                  defaultValue={0}
+                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-xs text-foreground/50">Erros</label>
+                <input
+                  name="erradas"
+                  type="number"
+                  min={0}
+                  defaultValue={0}
+                  className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
+                />
+              </div>
             </div>
           </div>
         )}
         {mostrarAnki && (
-          <label className="flex items-center gap-2 text-sm text-foreground/70">
-            <input name="anki" type="checkbox" className="h-4 w-4 rounded border-foreground/30" />
-            Revisei no Anki hoje
-          </label>
+          <div>
+            <label className="flex items-center gap-2 text-sm text-foreground/70">
+              <input name="anki" type="checkbox" className="h-4 w-4 rounded border-foreground/30" />
+              Revisei no Anki hoje
+            </label>
+            <div className="mt-1 flex items-center gap-1.5 pl-6">
+              <InfoTip
+                texto="O Anki funciona como seu caderno de erros: na etapa de Questões, copie pra lá as que você errou, mais as totalmente novas ou que você chutou. Aqui, revise todos os cards dessa disciplina."
+                id="ativacao-anki"
+                autoAbrir
+              />
+              <span className="text-xs text-foreground/50">Como usar o Anki aqui</span>
+            </div>
+          </div>
         )}
       </div>
     );
@@ -399,7 +422,14 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
     conteudo = proximoAssunto ? (
       <div>
-        <p className="text-sm text-foreground/60">Estude esse assunto no seu material (curso, livro, videoaula):</p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm text-foreground/60">Estude esse assunto no seu material (curso, livro, videoaula):</p>
+          <InfoTip
+            texto="Faça grifos e anotações bem curtos e pontuais — o mínimo possível. Fique com um único material por disciplina; trocar de material no meio atrapalha a revisão rápida depois, quando essa matéria voltar pro ciclo e você só precisar reler os grifos, não o conteúdo inteiro."
+            id="estudo-grifos"
+            autoAbrir
+          />
+        </div>
         <p className="mt-2 text-xl font-semibold text-foreground">{proximoAssunto.nome}</p>
         {proximoAssunto.progressoEstudo && (
           <p className="mt-3 text-sm text-foreground/60">
@@ -465,7 +495,10 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     if (bundle.leisPrincipais.length > 0) {
       conteudo = (
         <form action={aoConcluirLeiSeca}>
-          <p className="text-sm text-foreground/60">Leia:</p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm text-foreground/60">Leia:</p>
+            <InfoTip texto="Se for grifar, grife só palavras-chave — nada além disso." id="lei-seca-grifo" autoAbrir />
+          </div>
           <div className="mt-1 space-y-0.5">
             {bundle.leisPrincipais.map((lei) => (
               <p key={lei} className="text-xl font-semibold text-foreground">
@@ -512,6 +545,10 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       conteudo = (
         <form action={aoConcluirLeiSeca}>
           {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
+          <div className="mt-1 flex items-center gap-1.5">
+            <InfoTip texto="Se for grifar, grife só palavras-chave — nada além disso." id="lei-seca-grifo" autoAbrir />
+            <span className="text-xs text-foreground/50">Como grifar a lei</span>
+          </div>
 
           <div className="mt-4">
             <label className="block text-xs text-foreground/50">Qual lei</label>
@@ -694,11 +731,14 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
     conteudo = (
       <form action={ehValidacao ? aoConcluirQuestoesValidacao : aoConcluirQuestoesConsolidacao}>
-        <p className="text-sm text-foreground/60">
-          {ehValidacao
-            ? "Simulado da disciplina — resolva questões cobrindo todos os assuntos e registre o resultado:"
-            : "Revisão global da disciplina — resolva questões e registre o resultado por assunto:"}
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm text-foreground/60">
+            {ehValidacao
+              ? "Simulado da disciplina — resolva questões cobrindo todos os assuntos e registre o resultado:"
+              : "Revisão global da disciplina — resolva questões e registre o resultado por assunto:"}
+          </p>
+          <InfoTip texto={FILTRO_QUESTOES_TEXTO} id="questoes-filtro-revisao" autoAbrir />
+        </div>
 
         {bundle.leisPrincipais.length > 0 && (
           <div className="mt-4 rounded-md border border-foreground/10 bg-foreground/3 p-3">
@@ -842,11 +882,14 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
     conteudo = (
       <form action={aoConcluirQuestoes}>
-        <p className="text-sm text-foreground/60">
-          Resolva questões {assunto ? "sobre" : "dessa disciplina"}{" "}
-          {assunto && <span className="font-medium text-foreground">{assunto.nome}</span>} no seu material e
-          registre o resultado:
-        </p>
+        <div className="flex items-center gap-1.5">
+          <p className="text-sm text-foreground/60">
+            Resolva questões {assunto ? "sobre" : "dessa disciplina"}{" "}
+            {assunto && <span className="font-medium text-foreground">{assunto.nome}</span>} no seu material e
+            registre o resultado:
+          </p>
+          <InfoTip texto={FILTRO_QUESTOES_TEXTO} id="questoes-filtro" autoAbrir />
+        </div>
         <div className="mt-4 flex gap-3">
           <div className="flex-1">
             <label className="block text-xs text-foreground/50">Acertos</label>
