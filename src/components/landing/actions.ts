@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { verificarRateLimit } from "@/lib/rate-limit";
+import { enviarEmail, renderEmailHtml } from "@/lib/email";
 
 export type WaitlistState = { error: string | null; success: boolean };
 
@@ -35,6 +36,25 @@ export async function entrarListaEspera(
   if (error || !data) {
     return { error: "Não deu pra entrar na lista agora. Tenta de novo.", success: false };
   }
+
+  // já está na lista mesmo que o email de confirmação falhe — a inscrição
+  // não pode depender da disponibilidade do Resend
+  await enviarEmail({
+    to: email,
+    subject: "Você tá na lista de espera da ATLION",
+    html: renderEmailHtml({
+      titulo: "Você tá na lista",
+      corpoHtml: `
+        <p style="margin: 0 0 12px 0; font-size: 15px; line-height: 1.6; color: #4a5568;">
+          A ATLION ainda tá em construção. Assim que abrirmos as primeiras
+          vagas, você é um dos primeiros a saber — a gente avisa por aqui.
+        </p>
+        <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #4a5568;">
+          Até lá, sem nada que você precise fazer.
+        </p>
+      `,
+    }),
+  });
 
   return { error: null, success: true };
 }

@@ -114,7 +114,11 @@ function NavConteudo({
   onColapsar?: () => void;
 }) {
   const navItems = isAdmin
-    ? [...NAV_ITEMS, { href: "/admin/convites", label: "Admin", Icone: IconeAdmin }]
+    ? [
+        ...NAV_ITEMS,
+        { href: "/admin/convites", label: "Convites", Icone: IconeAdmin },
+        { href: "/admin/lista-de-espera", label: "Lista de espera", Icone: IconeListaEspera },
+      ]
     : NAV_ITEMS;
   return (
     <div className="flex h-full flex-col">
@@ -285,6 +289,15 @@ function IconeAdmin(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3Z" />
       <path d="M9.5 12l1.8 1.8L14.5 10" />
+    </svg>
+  );
+}
+
+function IconeListaEspera(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="M3 7l9 6 9-6" />
     </svg>
   );
 }
