@@ -17,9 +17,18 @@ export async function entrarListaEspera(
     return { error: "Preenche email e WhatsApp.", success: false };
   }
 
+  const emailValido = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  if (!emailValido) {
+    return { error: "Email inválido — confere o endereço digitado.", success: false };
+  }
+
+  // DDD brasileiro válido (11 a 99) + número de 8 ou 9 dígitos
   const digitosWhatsapp = whatsapp.replace(/\D/g, "");
-  if (digitosWhatsapp.length < 10) {
-    return { error: "WhatsApp inválido — inclui DDD.", success: false };
+  const ddd = Number(digitosWhatsapp.slice(0, 2));
+  const whatsappValido =
+    (digitosWhatsapp.length === 10 || digitosWhatsapp.length === 11) && ddd >= 11 && ddd <= 99;
+  if (!whatsappValido) {
+    return { error: "WhatsApp inválido — confere o número com DDD.", success: false };
   }
 
   const podeTentar = await verificarRateLimit("waitlist", email);

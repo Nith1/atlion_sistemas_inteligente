@@ -10,9 +10,14 @@ export function WaitlistForm() {
 
   if (state.success) {
     return (
-      <p className="mx-auto mt-10 max-w-sm rounded-lg border border-[#C8A15A]/30 bg-[#C8A15A]/10 p-4 text-sm text-[#F5F3EF]">
-        Você está na lista. A gente avisa assim que abrir uma vaga.
-      </p>
+      <div className="mx-auto mt-10 max-w-sm space-y-2 rounded-lg border border-[#C8A15A]/30 bg-[#C8A15A]/10 p-4 text-sm text-[#F5F3EF]">
+        <p>Você está na lista! Mandamos um email de confirmação agora.</p>
+        <p className="text-[#AAB4C3]">
+          Não achou na caixa de entrada? Dá uma olhada no Spam e marca como
+          &quot;não é spam&quot; — assim você não perde o aviso quando
+          abrirmos as primeiras vagas.
+        </p>
+      </div>
     );
   }
 
