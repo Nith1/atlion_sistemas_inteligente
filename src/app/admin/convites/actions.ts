@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { enviarEmail, renderEmailHtml } from "@/lib/email";
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -46,8 +47,40 @@ export async function criarConvite(
 
   revalidatePath("/admin/convites");
 
-  return {
-    error: null,
-    link: `${process.env.NEXT_PUBLIC_SITE_URL}/convite/${data.token}`,
-  };
+  const link = `${process.env.NEXT_PUBLIC_SITE_URL}/convite/${data.token}`;
+
+  // manda o convite direto pro email da pessoa — o admin ainda vê o link na
+  // tela (retornado abaixo) pra também poder mandar por WhatsApp se quiser,
+  // mas não depende mais de copiar/colar manualmente pra todo mundo
+  await enviarEmail({
+    to: email,
+    subject: "Você foi convidado pra ATLION",
+    html: renderEmailHtml({
+      titulo: "Você foi convidado",
+      corpoHtml: `
+        <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #4a5568;">
+          Alguém da ATLION liberou seu acesso antecipado. É só clicar no
+          botão abaixo, criar sua senha e começar.
+        </p>
+        <table role="presentation" cellpadding="0" cellspacing="0">
+          <tr>
+            <td style="border-radius: 8px; background-color: #c9a227;">
+              <a
+                href="${link}"
+                style="display: inline-block; padding: 13px 28px; font-size: 15px; font-weight: 600; color: #142440; text-decoration: none;"
+              >
+                Ativar meu acesso
+              </a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin: 20px 0 0 0; font-size: 12px; line-height: 1.6; color: #9aa5b1;">
+          Se o botão não funcionar, copie e cole este link no navegador:<br />
+          <a href="${link}" style="color: #142440; word-break: break-all;">${link}</a>
+        </p>
+      `,
+    }),
+  });
+
+  return { error: null, link };
 }

@@ -37,18 +37,23 @@ export function ConviteForm() {
       {state.error && <p className="mt-3 text-sm text-red-600">{state.error}</p>}
 
       {state.link && (
-        <div className="mt-4 flex flex-col gap-2 rounded-md border border-foreground/10 bg-foreground/5 p-3 sm:flex-row sm:items-center">
-          <code className="flex-1 break-all text-sm">{state.link}</code>
-          <button
-            type="button"
-            onClick={() => {
-              navigator.clipboard.writeText(state.link!);
-              setCopiado(true);
-            }}
-            className="shrink-0 rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-medium hover:bg-foreground/5"
-          >
-            {copiado ? "Copiado!" : "Copiar link"}
-          </button>
+        <div className="mt-4 space-y-2">
+          <p className="text-sm text-foreground/70">
+            Convite enviado por email. Se quiser também mandar por WhatsApp, copia o link abaixo:
+          </p>
+          <div className="flex flex-col gap-2 rounded-md border border-foreground/10 bg-foreground/5 p-3 sm:flex-row sm:items-center">
+            <code className="flex-1 break-all text-sm">{state.link}</code>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard.writeText(state.link!);
+                setCopiado(true);
+              }}
+              className="shrink-0 rounded-md border border-foreground/20 px-3 py-1.5 text-xs font-medium hover:bg-foreground/5"
+            >
+              {copiado ? "Copiado!" : "Copiar link"}
+            </button>
+          </div>
         </div>
       )}
     </div>
