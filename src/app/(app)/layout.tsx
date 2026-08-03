@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { InfoTipProvider } from "@/components/ui/info-tip-provider";
 import { Sidebar } from "./sidebar";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -18,9 +19,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen flex-1 flex-col md:flex-row">
-      <Sidebar isAdmin={isAdmin} />
-      <main className="flex flex-1 flex-col">{children}</main>
-    </div>
+    <InfoTipProvider>
+      <div className="flex min-h-screen flex-1 flex-col md:flex-row">
+        <Sidebar isAdmin={isAdmin} />
+        <main className="flex flex-1 flex-col">{children}</main>
+      </div>
+    </InfoTipProvider>
   );
 }

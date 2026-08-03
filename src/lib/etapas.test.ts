@@ -8,7 +8,7 @@ describe("sessoesPrevistasHoje", () => {
     expect(sessoesPrevistasHoje(0)).toBe(1);
   });
 
-  it("3 horas cabem numa sessão só (135 min de referência)", () => {
+  it("3 horas cabem numa sessão só (138 min de referência)", () => {
     expect(sessoesPrevistasHoje(3)).toBe(1);
   });
 

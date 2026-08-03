@@ -12,7 +12,7 @@ export const ETAPA_LABELS: Record<string, string> = {
 
 // Duração sugerida por etapa — método validado do Atlion, não é estimativa.
 export const MINUTOS_SUGERIDOS: Record<string, number> = {
-  ativacao_cognitiva: 15, // método: 10 a 15 min
+  ativacao_cognitiva: 18, // método: 15 a 20 min
   estudo: 50,
   descanso: 10,
   lei_seca: 20,
@@ -24,7 +24,7 @@ export const MINUTOS_SUGERIDOS: Record<string, number> = {
 };
 
 export const SUGERIDO_LABEL: Partial<Record<string, string>> = {
-  ativacao_cognitiva: "10–15 min",
+  ativacao_cognitiva: "15–20 min",
 };
 
 // Ajuste de tempo por sessão: multiplicador sobre MINUTOS_SUGERIDOS, pra
@@ -40,16 +40,16 @@ export const AJUSTES_TEMPO: { valor: number; label: string }[] = [
 // demais — não bloqueia nada, a pessoa decide mesmo assim (gerenciável, mas
 // o padrão do método continua sendo a referência).
 const MINUTOS_MINIMOS: Partial<Record<string, number>> = {
-  ativacao_cognitiva: 10,
+  ativacao_cognitiva: 15,
 };
 
 // Duração de referência de uma sessão completa (o pipeline mais longo, o
-// jurídico: ativação 15 + estudo 50 + descanso 10 + lei seca 20 +
-// jurisprudência 20 + questões 20 = 135 min). A duração real varia com o
+// jurídico: ativação 18 + estudo 50 + descanso 10 + lei seca 20 +
+// jurisprudência 20 + questões 20 = 138 min). A duração real varia com o
 // tipo de disciplina que o Motor escolher — isso é só uma régua pra estimar
 // quantas sessões inteiras cabem no tempo líquido do aluno, não um valor
 // exato por sessão.
-export const MINUTOS_SESSAO_REFERENCIA = 135;
+export const MINUTOS_SESSAO_REFERENCIA = 138;
 
 // Quantas sessões inteiras (não uma sessão só esticada) cabem no tempo
 // líquido diário do aluno — é assim que "horas líquidas por dia" (pergunta
@@ -65,7 +65,7 @@ export function avisoTempoBaixo(tipo: string, minutos: number): string | null {
   const minimo = MINUTOS_MINIMOS[tipo];
 
   if (tipo === "ativacao_cognitiva" && minimo !== undefined && minutos < minimo) {
-    return "A Ativação Cognitiva é fundamental pra reforçar o que você já estudou — menos de 10 min pode não ser suficiente.";
+    return "A Ativação Cognitiva é fundamental pra reforçar o que você já estudou — menos de 15 min pode não ser suficiente.";
   }
   if (minimo !== undefined && minutos < minimo) {
     return `Menos que o mínimo recomendado (${minimo} min) pra essa etapa.`;

@@ -19,6 +19,22 @@ import type { MutacaoSemId, SessaoBundle, SessaoLocalState } from "@/lib/sessao-
 const FILTRO_QUESTOES_TEXTO =
   "Filtre primeiro por cargo e, se já souber, por banca. Sempre questões novas. Quando acabarem as novas do seu cargo, passe pra novas de cargos semelhantes, mantendo o filtro de banca. Só quando essas também acabarem, filtre pelas que você errou. E quando essas também acabarem, aí sim pode repetir todas as questões de novo, do início.";
 
+// Anki como caderno de erros: toda questão errada (ou nova demais / chutada)
+// vira flashcard — não é um banco de revisão espaçada genérico, é
+// especificamente onde os erros vão parar.
+const ANKI_CADERNO_ERROS_TEXTO =
+  "O Anki funciona como seu caderno de erros: depois de responder as questões (numa plataforma à parte — a ATLION só registra o resultado), crie um flashcard pra cada uma que você errou, mais as totalmente novas ou que você chutou.";
+
+// Sugestão de quantidade de questões por assunto na Ativação Cognitiva: uma
+// faixa de 10 a 15 questões no total da revisão, dividida entre os assuntos
+// da janela (1 assunto = 10 a 15; 2 assuntos = ~5 a 8 cada; e assim por
+// diante).
+function sugestaoQuestoesPorAssunto(totalAssuntos: number): string {
+  const minimo = Math.max(1, Math.floor(10 / totalAssuntos));
+  const maximo = Math.max(minimo, Math.ceil(15 / totalAssuntos));
+  return minimo === maximo ? `${minimo} questões` : `${minimo} a ${maximo} questões`;
+}
+
 const CONSOLIDACAO_INSTRUCAO: Record<string, string> = {
   exercicios: "Resolva exercícios sobre esse assunto no seu material.",
   laboratorio: "Pratique em laboratório/simulador esse assunto.",
@@ -339,7 +355,11 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           <div>
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-foreground/50">Questões</span>
-              <InfoTip texto={FILTRO_QUESTOES_TEXTO} id="ativacao-filtro-questoes" autoAbrir />
+              <InfoTip
+                texto={`${FILTRO_QUESTOES_TEXTO} Reserve de 15 a 20 minutos pra essa etapa.`}
+                id="ativacao-filtro-questoes"
+                autoAbrir
+              />
             </div>
             <div className="mt-1 flex gap-3">
               <div className="flex-1">
@@ -373,7 +393,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             </label>
             <div className="mt-1 flex items-center gap-1.5 pl-6">
               <InfoTip
-                texto="O Anki funciona como seu caderno de erros: na etapa de Questões, copie pra lá as que você errou, mais as totalmente novas ou que você chutou. Aqui, revise todos os cards dessa disciplina."
+                texto={`${ANKI_CADERNO_ERROS_TEXTO} Aqui na Ativação Cognitiva, responda questões e o máximo de flashcards que conseguir dessa disciplina — o ideal é dar conta de todos, mas nem sempre cabe tudo nos 15 a 20 minutos, e tá tudo bem.`}
                 id="ativacao-anki"
                 autoAbrir
               />
@@ -392,10 +412,17 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             {candidatos.map((assunto) => (
               <li
                 key={assunto.id}
-                className="rounded-md border border-foreground/10 bg-foreground/3 px-3 py-2 text-sm"
+                className="flex items-center justify-between gap-2 rounded-md border border-foreground/10 bg-foreground/3 px-3 py-2 text-sm"
               >
-                <input type="hidden" name="assuntoId" value={assunto.id} />
-                {assunto.nome}
+                <span>
+                  <input type="hidden" name="assuntoId" value={assunto.id} />
+                  {assunto.nome}
+                </span>
+                {mostrarQuestoes && (
+                  <span className="shrink-0 text-xs text-foreground/40">
+                    {sugestaoQuestoesPorAssunto(candidatos.length)}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -425,7 +452,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
         <div className="flex items-center gap-1.5">
           <p className="text-sm text-foreground/60">Estude esse assunto no seu material (curso, livro, videoaula):</p>
           <InfoTip
-            texto="Faça grifos e anotações bem curtos e pontuais — o mínimo possível. Fique com um único material por disciplina; trocar de material no meio atrapalha a revisão rápida depois, quando essa matéria voltar pro ciclo e você só precisar reler os grifos, não o conteúdo inteiro."
+            texto="Grife apenas o essencial, de forma bem pontual. Quando essa matéria voltar pro ciclo e você for revisar, vai reler só os grifos — não o conteúdo inteiro —, o que torna a revisão bem mais rápida. É por isso, inclusive, que vale a pena manter um único material por disciplina do início ao fim: trocar de material no meio quebra essa continuidade. Além dos grifos, você também pode fazer anotações pontuais direto no material, quando achar necessário."
             id="estudo-grifos"
             autoAbrir
           />
@@ -879,6 +906,8 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
   if (etapaAtual.tipo === "questoes" && bundle.sessaoTipo === "normal") {
     const assunto = estado.assuntoSelecionado;
+    const mostrarAnkiCadernoErros =
+      bundle.ativacaoModo === "anki" || bundle.ativacaoModo === "questoes_anki";
 
     conteudo = (
       <form action={aoConcluirQuestoes}>
@@ -888,7 +917,11 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             {assunto && <span className="font-medium text-foreground">{assunto.nome}</span>} no seu material e
             registre o resultado:
           </p>
-          <InfoTip texto={FILTRO_QUESTOES_TEXTO} id="questoes-filtro" autoAbrir />
+          <InfoTip
+            texto={`${FILTRO_QUESTOES_TEXTO} Reserve cerca de 20 minutos pra essa etapa. Sugestão de quantidade: no mínimo 15 questões — o ideal é passar de 20.`}
+            id="questoes-filtro"
+            autoAbrir
+          />
         </div>
         <div className="mt-4 flex gap-3">
           <div className="flex-1">
@@ -915,7 +948,12 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           </div>
         </div>
         <div className="mt-4">
-          <label className="block text-xs text-foreground/50">Se errou algo, o que vale revisar depois</label>
+          <div className="flex items-center gap-1.5">
+            <label className="block text-xs text-foreground/50">Se errou algo, o que vale revisar depois</label>
+            {mostrarAnkiCadernoErros && (
+              <InfoTip texto={ANKI_CADERNO_ERROS_TEXTO} id="questoes-anki-caderno" autoAbrir />
+            )}
+          </div>
           <textarea
             name="anotacao"
             rows={5}
