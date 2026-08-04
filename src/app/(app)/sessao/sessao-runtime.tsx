@@ -357,7 +357,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
               <span className="text-xs text-foreground/50">Questões</span>
               <InfoTip
                 texto={`${FILTRO_QUESTOES_TEXTO} Reserve de 15 a 20 minutos pra essa etapa.`}
-                id="ativacao-filtro-questoes"
+                id="ativacao-filtro-questoes-v2"
                 autoAbrir
               />
             </div>
@@ -394,7 +394,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             <div className="mt-1 flex items-center gap-1.5 pl-6">
               <InfoTip
                 texto={`${ANKI_CADERNO_ERROS_TEXTO} Aqui na Ativação Cognitiva, responda questões e o máximo de flashcards que conseguir dessa disciplina — o ideal é dar conta de todos, mas nem sempre cabe tudo nos 15 a 20 minutos, e tá tudo bem.`}
-                id="ativacao-anki"
+                id="ativacao-anki-v2"
                 autoAbrir
               />
               <span className="text-xs text-foreground/50">Como usar o Anki aqui</span>

@@ -44,12 +44,18 @@ export function InfoTip({ texto, id, autoAbrir }: { texto: string; id?: string; 
 
   useLayoutEffect(() => {
     if (!autoAbrir || !id) return;
+    // Dentro de um InfoTipProvider, quem decide a ordem/momento de abrir é o
+    // provider (evita a corrida quando há mais de um autoAbrir na mesma
+    // tela — ver info-tip-provider.tsx). Sem provider, autoabre direto.
+    if (contexto) {
+      contexto.registrarAutoAbrir(id);
+      return;
+    }
     if (window.localStorage.getItem(CHAVE_VISTO(id))) return;
     window.localStorage.setItem(CHAVE_VISTO(id), "1");
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    definirAberto(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoAbrir, id]);
+    setAbertoLocal(true);
+  }, [autoAbrir, id, contexto]);
 
   // Posiciona com coordenadas de tela (position: fixed), calculadas na mão,
   // em vez de "centralizado por CSS" — perto de qualquer borda isso estoura
