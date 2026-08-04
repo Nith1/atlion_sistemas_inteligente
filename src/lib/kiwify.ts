@@ -67,15 +67,14 @@ export type AcaoAssinatura = {
 // "não mexe na data atual" (usado no cancelamento, que não deve cortar o
 // período já pago — ver contexto no plano/migration 0025).
 //
-// ATENÇÃO: só "pix_created" foi confirmado com um payload real (o botão de
-// teste da Kiwify parece sempre simular esse mesmo evento). Os outros
-// valores abaixo (order_approved, subscription_renewed, etc — incluindo
-// variações de grafia como "canceled"/"cancelled") são a melhor tentativa
-// seguindo o padrão observado, mas não foram vistos ao vivo ainda. Antes de
-// abrir cadastro público de verdade, vale fazer uma compra real (pode ser a
-// promocional de R$19,90, cancelando/reembolsando depois) só pra confirmar
-// o nome exato do evento "compra aprovada" — é o mais crítico dos dois,
-// porque é o que libera acesso.
+// Confirmado com eventos reais em 04/08/2026: "pix_created" (botão de teste
+// da Kiwify) e "order_approved" (compra real de R$19,90, paga e aprovada —
+// gerou periodo_fim e convite corretamente). Os demais valores abaixo
+// (subscription_renewed, order_refunded, chargeback, subscription_canceled
+// e as variações de grafia "canceled"/"cancelled"/"delayed") ainda não
+// foram vistos ao vivo — seguem o mesmo padrão observado, mas vale
+// confirmar cada um conforme forem acontecendo de verdade (renovação
+// mensal, um reembolso real, etc).
 export function avaliarEvento(webhookEventType: string | undefined, eventoEm: Date, periodoFimSugerido: Date | null): AcaoAssinatura {
   switch (webhookEventType) {
     case "order_approved":

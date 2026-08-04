@@ -19,15 +19,6 @@ export async function POST(request: NextRequest) {
 
   const evento = parsePayload(body);
 
-  // TEMPORÁRIO — só durante o teste real com a Kiwify (ver plano, seção
-  // "Verificação", passo 3). Confirma onde o token chega de verdade e os
-  // nomes exatos de campo antes de confiar no parsing acima. Remover depois.
-  console.log("[kiwify webhook] payload recebido", {
-    url: request.nextUrl.toString(),
-    headers: Object.fromEntries(request.headers.entries()),
-    body,
-  });
-
   if (!evento.customerEmail || !evento.webhookEventType) {
     return NextResponse.json({ ok: true });
   }
