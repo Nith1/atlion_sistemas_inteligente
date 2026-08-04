@@ -28,11 +28,11 @@ export async function POST(request: NextRequest) {
     body,
   });
 
-  if (!evento.customerEmail || !evento.orderStatus) {
+  if (!evento.customerEmail || !evento.webhookEventType) {
     return NextResponse.json({ ok: true });
   }
 
-  const acao = avaliarEvento(evento.orderStatus, new Date());
+  const acao = avaliarEvento(evento.webhookEventType, new Date(), evento.periodoFimSugerido);
   if (acao.tipo === "ignorar") {
     return NextResponse.json({ ok: true });
   }
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     .rpc("registrar_evento_assinatura", {
       p_email: email,
       p_status: acao.status,
-      p_evento: evento.orderStatus,
+      p_evento: evento.webhookEventType,
       p_evento_em: new Date().toISOString(),
       p_order_id: evento.orderId ?? null,
       p_subscription_id: evento.subscriptionId ?? null,
