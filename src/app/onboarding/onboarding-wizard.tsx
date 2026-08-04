@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import { concluirOnboarding } from "./actions";
 import { Preparando } from "./preparando";
+import { useInstalarApp } from "@/lib/pwa/usar-instalar-app";
 import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
 import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina } from "@/lib/disciplinas";
 import { extrairTopicos, type Topico } from "@/lib/assuntos-parser";
@@ -92,6 +93,11 @@ export function OnboardingWizard() {
   const [form, setForm] = useState<FormState>(estadoInicial);
   const [erro, setErro] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  // só usado pra saber se vale a pena segurar a tela de "Preparando" um
+  // pouco mais no fim, pra dar tempo do nudge de instalar app aparecer (ver
+  // Preparando) — sem instalação disponível, não atrasa o redirect à toa
+  const { instalado, ehIOS, podeInstalar } = useInstalarApp();
+  const temNudgeDeInstalar = !instalado && (podeInstalar || ehIOS);
 
   function irPara(proxima: number) {
     setErro(null);
@@ -105,7 +111,7 @@ export function OnboardingWizard() {
     setEtapa(4);
 
     const inicio = Date.now();
-    const DURACAO_MINIMA_MS = 5600;
+    const DURACAO_MINIMA_MS = temNudgeDeInstalar ? 7800 : 5600;
 
     startTransition(async () => {
       const resultado = await concluirOnboarding({

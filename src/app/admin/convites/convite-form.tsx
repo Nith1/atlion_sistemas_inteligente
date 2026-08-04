@@ -16,22 +16,31 @@ export function ConviteForm() {
           setCopiado(false);
           formAction(formData);
         }}
-        className="flex flex-col gap-3 sm:flex-row"
+        className="flex flex-col gap-3"
       >
-        <input
-          name="email"
-          type="email"
-          required
-          placeholder="email@da-pessoa.com"
-          className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            name="email"
+            type="email"
+            required
+            placeholder="email@da-pessoa.com"
+            className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
+          />
+          <button
+            type="submit"
+            disabled={pending}
+            className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90 disabled:opacity-50"
+          >
+            {pending ? "Gerando..." : "Gerar convite"}
+          </button>
+        </div>
+        <textarea
+          name="mensagem"
+          rows={3}
+          maxLength={500}
+          placeholder="Mensagem personalizada (opcional) — aparece no email, além do texto padrão"
+          className="w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-navy"
         />
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-md bg-navy px-4 py-2 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90 disabled:opacity-50"
-        >
-          {pending ? "Gerando..." : "Gerar convite"}
-        </button>
       </form>
 
       {state.error && <p className="mt-3 text-sm text-red-600">{state.error}</p>}

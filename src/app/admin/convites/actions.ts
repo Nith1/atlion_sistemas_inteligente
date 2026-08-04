@@ -24,6 +24,8 @@ async function requireAdmin() {
 
 export type CriarConviteState = { error: string | null; link: string | null };
 
+const TAMANHO_MAXIMO_MENSAGEM = 500;
+
 export async function criarConvite(
   _prevState: CriarConviteState,
   formData: FormData
@@ -33,6 +35,15 @@ export async function criarConvite(
   const email = (formData.get("email") as string)?.trim();
   if (!email || !email.includes("@")) {
     return { error: "Email inválido.", link: null };
+  }
+
+  // mensagem pessoal opcional pro convite manual — nunca confiar só na
+  // validação client (maxLength do textarea), revalidar tamanho aqui
+  // também (seguranca.md §6)
+  const mensagemBruta = (formData.get("mensagem") as string) ?? "";
+  const mensagem = mensagemBruta.trim();
+  if (mensagem.length > TAMANHO_MAXIMO_MENSAGEM) {
+    return { error: `Mensagem muito longa (máx. ${TAMANHO_MAXIMO_MENSAGEM} caracteres).`, link: null };
   }
 
   // a própria função revalida is_admin no servidor — não confia só no
@@ -50,7 +61,7 @@ export async function criarConvite(
   // manda o convite direto pro email da pessoa — o admin ainda vê o link na
   // tela (retornado abaixo) pra também poder mandar por WhatsApp se quiser,
   // mas não depende mais de copiar/colar manualmente pra todo mundo
-  const link = await enviarEmailConvite(email, data.token);
+  const link = await enviarEmailConvite(email, data.token, mensagem || undefined);
 
   return { error: null, link };
 }

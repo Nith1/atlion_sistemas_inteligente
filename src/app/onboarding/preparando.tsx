@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { useInstalarApp } from "@/lib/pwa/usar-instalar-app";
 
 const PASSOS = [
   { atraso: 800, texto: "Concurso identificado" },
@@ -19,6 +20,7 @@ const ATRASO_CONVERGENCIA = 4800;
 export function Preparando() {
   const [passosVisiveis, setPassosVisiveis] = useState(0);
   const [convergiu, setConvergiu] = useState(false);
+  const { instalado, ehIOS, podeInstalar, instalar } = useInstalarApp();
 
   useEffect(() => {
     const timers = PASSOS.map((passo, i) =>
@@ -79,6 +81,29 @@ export function Preparando() {
                 ✓
               </motion.span>
               <p className="text-base font-medium text-foreground">Preparação criada com sucesso.</p>
+
+              {!instalado && (podeInstalar || ehIOS) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.9, duration: 0.4 }}
+                  className="mt-2"
+                >
+                  {podeInstalar ? (
+                    <button
+                      type="button"
+                      onClick={instalar}
+                      className="text-xs text-foreground/40 underline underline-offset-4 transition hover:text-foreground/70"
+                    >
+                      Prefere como app? Instalar na tela inicial
+                    </button>
+                  ) : (
+                    <p className="text-xs text-foreground/40">
+                      No iPhone: toque em Compartilhar e depois em &quot;Adicionar à Tela de Início&quot; pra instalar.
+                    </p>
+                  )}
+                </motion.div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
