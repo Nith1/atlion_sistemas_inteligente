@@ -7,7 +7,7 @@ import { concluirOnboarding } from "./actions";
 import { Preparando } from "./preparando";
 import { useInstalarApp } from "@/lib/pwa/usar-instalar-app";
 import { CONCURSOS_SUGERIDOS } from "@/lib/concursos";
-import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina } from "@/lib/disciplinas";
+import { DISCIPLINAS_SUGERIDAS, inferirTipoDisciplina, type Prioridade } from "@/lib/disciplinas";
 import { extrairTopicos, type Topico } from "@/lib/assuntos-parser";
 import { ASSUNTOS_SUGERIDOS } from "@/lib/assuntos-sugeridos";
 import { JURISPRUDENCIA_SUGERIDA, LEIS_SUGERIDAS } from "@/lib/leis-sugeridas";
@@ -63,6 +63,9 @@ type FormState = {
   trabalha: boolean | null;
   horasLiquidasDia: number | null;
   disciplinas: string[];
+  // chave = nome da disciplina (como digitado em form.disciplinas) — só
+  // guarda quem foi marcado, o resto assume "normal" na hora de enviar
+  prioridadesPorDisciplina: Record<string, Prioridade>;
   // chave = nome da disciplina (como digitado em form.disciplinas)
   assuntosPorDisciplina: Record<string, Topico[]>;
   // "cronograma à parte" — só relevante pra disciplinas jurídicas, opcional,
@@ -79,6 +82,7 @@ const estadoInicial: FormState = {
   trabalha: null,
   horasLiquidasDia: null,
   disciplinas: [""],
+  prioridadesPorDisciplina: {},
   assuntosPorDisciplina: {},
   leisPorDisciplina: {},
   jurisprudenciasPorDisciplina: {},
@@ -108,7 +112,7 @@ export function OnboardingWizard() {
   function iniciarPreparacao() {
     setErro(null);
     setDirecao(1);
-    setEtapa(4);
+    setEtapa(5);
 
     const inicio = Date.now();
     const DURACAO_MINIMA_MS = temNudgeDeInstalar ? 7800 : 5600;
@@ -127,6 +131,7 @@ export function OnboardingWizard() {
           .map((nome) => ({
             nome,
             tipo: inferirTipoDisciplina(nome),
+            prioridade: form.prioridadesPorDisciplina[nome] ?? "normal",
             assuntos: form.assuntosPorDisciplina[nome] ?? [],
             leisPrincipais: form.leisPorDisciplina[nome] ?? [],
             jurisprudenciasPrincipais: form.jurisprudenciasPorDisciplina[nome] ?? [],
@@ -135,7 +140,7 @@ export function OnboardingWizard() {
 
       if (resultado?.error) {
         setErro(resultado.error);
-        irPara(3);
+        irPara(4);
         return;
       }
 
@@ -155,14 +160,14 @@ export function OnboardingWizard() {
 
   return (
     <div className="w-full max-w-md">
-      {etapa < 4 && (
+      {etapa < 5 && (
         <div className="mb-10 flex items-center justify-between">
           <div className="flex gap-1.5">
-            {[1, 2, 3, 4].map((n) => (
+            {[1, 2, 3, 4, 5].map((n) => (
               <span key={n} className={`h-1.5 w-1.5 rounded-full ${n <= etapa ? "bg-gold" : "bg-foreground/15"}`} />
             ))}
           </div>
-          <span className="text-xs text-foreground/40">Etapa {etapa} de 4</span>
+          <span className="text-xs text-foreground/40">Etapa {etapa} de 5</span>
         </div>
       )}
 
@@ -193,15 +198,18 @@ export function OnboardingWizard() {
             />
           )}
           {etapa === 3 && (
+            <EtapaPrioridades form={form} setForm={setForm} onVoltar={() => irPara(2)} onContinuar={() => irPara(4)} />
+          )}
+          {etapa === 4 && (
             <Etapa3
               form={form}
               setForm={setForm}
               erro={erro}
-              onVoltar={() => irPara(2)}
+              onVoltar={() => irPara(3)}
               onContinuar={iniciarPreparacao}
             />
           )}
-          {etapa === 4 && <Preparando />}
+          {etapa === 5 && <Preparando />}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -449,7 +457,10 @@ function Etapa2({
         </div>
 
         <div>
-          <label className="mb-2 block text-sm text-foreground/60">Ativação Cognitiva</label>
+          <label className="mb-2 flex items-center text-sm text-foreground/60">
+            Ativação Cognitiva
+            <Ajuda texto="É como o app vai te ajudar a fixar o que você já estudou: refazendo questões, revisando com cartões (Anki) ou os dois juntos." />
+          </label>
           <div className="space-y-2">
             {ATIVACAO_MODOS.map((modo) => (
               <button
@@ -497,6 +508,117 @@ function Etapa2({
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function EtapaPrioridades({
+  form,
+  setForm,
+  onVoltar,
+  onContinuar,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  onVoltar: () => void;
+  onContinuar: () => void;
+}) {
+  const disciplinasValidas = form.disciplinas.map((d) => d.trim()).filter(Boolean);
+
+  function alternarPrioridade(nome: string) {
+    setForm((atual) => {
+      const prioridadeAtual = atual.prioridadesPorDisciplina[nome] ?? "normal";
+      return {
+        ...atual,
+        prioridadesPorDisciplina: {
+          ...atual.prioridadesPorDisciplina,
+          [nome]: prioridadeAtual === "alta" ? "normal" : "alta",
+        },
+      };
+    });
+  }
+
+  // pular = seguir sem marcar nada, todo mundo fica "normal" — o motor
+  // adaptativo já funciona nesse padrão sem precisar de prioridade nenhuma
+  function pular() {
+    setForm((atual) => ({ ...atual, prioridadesPorDisciplina: {} }));
+    onContinuar();
+  }
+
+  return (
+    <div>
+      <h1 className="flex items-center text-xl font-semibold text-foreground">
+        Prioridades
+        <Ajuda texto="Se você pular, sem problema — o motor calcula tudo dentro do padrão normal. Disciplinas marcadas como prioridade só aparecem com mais frequência nos seus estudos, e dá pra ajustar isso quando quiser, na aba Planejamento." />
+      </h1>
+      <p className="mt-1 text-sm text-foreground/60">
+        Marque as disciplinas que você quer estudar com mais frequência. As demais seguem no ritmo normal — se
+        preferir, é só pular.
+      </p>
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        {disciplinasValidas.map((nome) => {
+          const alta = (form.prioridadesPorDisciplina[nome] ?? "normal") === "alta";
+          return (
+            <button
+              type="button"
+              key={nome}
+              onClick={() => alternarPrioridade(nome)}
+              className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                alta
+                  ? "border-gold bg-gold/10 text-foreground"
+                  : "border-foreground/20 text-foreground/70 hover:border-foreground/40"
+              }`}
+            >
+              {alta && "★ "}
+              {nome}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 flex items-center justify-between">
+        <button type="button" onClick={onVoltar} className="text-sm text-foreground/60 hover:text-foreground">
+          Voltar
+        </button>
+        <div className="flex items-center gap-4">
+          <button type="button" onClick={pular} className="text-sm text-foreground/50 hover:text-foreground">
+            Pular
+          </button>
+          <button
+            type="button"
+            onClick={onContinuar}
+            className="rounded-md bg-navy px-6 py-3 text-sm font-medium text-white ring-1 ring-white/10 transition hover:opacity-90"
+          >
+            Continuar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Botão "?" com popover de texto curto — usado nos pontos do onboarding que
+// introduzem um conceito novo (ex: Prioridades, Ativação Cognitiva), pra
+// gente não deixar a pessoa escolher no escuro e ter que refazer depois.
+function Ajuda({ texto }: { texto: string }) {
+  const [aberto, setAberto] = useState(false);
+
+  return (
+    <span className="relative ml-1.5 inline-block">
+      <button
+        type="button"
+        onClick={() => setAberto((a) => !a)}
+        aria-label="Ajuda"
+        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-foreground/30 text-[10px] leading-none text-foreground/50 hover:border-foreground/50 hover:text-foreground/70"
+      >
+        ?
+      </button>
+      {aberto && (
+        <span className="absolute left-1/2 top-6 z-20 w-56 -translate-x-1/2 rounded-md border border-foreground/15 bg-background p-2.5 text-xs font-normal leading-relaxed text-foreground/70 shadow-lg">
+          {texto}
+        </span>
+      )}
+    </span>
   );
 }
 

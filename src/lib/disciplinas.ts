@@ -8,6 +8,9 @@ export const DISCIPLINAS_SUGERIDAS: Record<string, string[]> = {
     "Direito Civil",
     "Direito Processual Civil",
     "Direito Processual Penal",
+    "Direito Penal Militar",
+    "Direito Processual Penal Militar",
+    "Legislação Penal Especial",
     "Direito do Trabalho",
     "Direito Tributário",
     "Direito Previdenciário",
@@ -24,6 +27,9 @@ export const DISCIPLINAS_SUGERIDAS: Record<string, string[]> = {
     "Direitos Humanos",
     "Sociologia",
     "Filosofia",
+    "Criminologia",
+    "Medicina Legal",
+    "Investigação Criminal",
   ],
   informatica: [
     "Informática Básica",
@@ -42,7 +48,8 @@ const PALAVRAS_CHAVE: { tipo: string; padrao: RegExp }[] = [
   { tipo: "exatas", padrao: /matem[aá]tica|racioc[ií]nio l[oó]gico|f[ií]sica|estat[ií]stica|geometria/i },
   {
     tipo: "humanas",
-    padrao: /portugu[eê]s|reda[cç][aã]o|hist[oó]ria|geografia|atualidades|sociologia|filosofia|literatura/i,
+    padrao:
+      /portugu[eê]s|reda[cç][aã]o|hist[oó]ria|geografia|atualidades|sociologia|filosofia|literatura|criminologia|medicina legal|investiga[çc][ãa]o criminal/i,
   },
   { tipo: "informatica", padrao: /inform[aá]tica|tecnologia da informa[cç][aã]o|programa[cç][aã]o|banco de dados|redes de computadores/i },
   { tipo: "idiomas", padrao: /ingl[eê]s|espanhol|franc[eê]s|idioma/i },

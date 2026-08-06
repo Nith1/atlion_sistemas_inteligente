@@ -8,6 +8,7 @@ import { garantirSessaoEmAndamento } from "../(app)/sessao/actions";
 export type DisciplinaInput = {
   nome: string;
   tipo: string;
+  prioridade: "baixa" | "normal" | "alta";
   assuntos: Topico[];
   leisPrincipais: string[];
   jurisprudenciasPrincipais: string[];
@@ -57,6 +58,7 @@ export async function concluirOnboarding(payload: OnboardingPayload) {
           nome: disciplina.nome,
           tipo: disciplina.tipo,
           ordem: indice,
+          prioridade: disciplina.prioridade,
           leis_principais: disciplina.leisPrincipais,
           jurisprudencias_principais: disciplina.jurisprudenciasPrincipais,
         }))

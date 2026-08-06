@@ -25,6 +25,15 @@ export const LEIS_SUGERIDAS: Record<string, string[]> = {
     "Código Civil — Livro II (Direito de Empresa)",
     "Lei nº 6.404/1976 (Sociedades por Ações)",
   ],
+  "Direito Penal Militar": ["Código Penal Militar (Decreto-Lei nº 1.001/1969)"],
+  "Direito Processual Penal Militar": ["Código de Processo Penal Militar (Decreto-Lei nº 1.002/1969)"],
+  "Legislação Penal Especial": [
+    "Lei nº 11.343/2006 (Lei de Drogas)",
+    "Lei nº 10.826/2003 (Estatuto do Desarmamento)",
+    "Lei nº 11.340/2006 (Lei Maria da Penha)",
+    "Lei nº 13.869/2019 (Lei de Abuso de Autoridade)",
+    "Lei nº 7.210/1984 (Lei de Execução Penal)",
+  ],
 };
 
 // Jurisprudência não tem "a" fonte única por disciplina como as leis — as
