@@ -50,6 +50,18 @@ const ATIVACAO_MODO_LABEL: Record<string, string> = {
 // como singleton mesmo se o componente remontar.
 const controladorFila = criarControladorFila(despacharMutacao);
 
+// Submit implícito do HTML: apertar Enter num <input> de linha única (ex:
+// os campos numéricos de Acertos/Erros) dispara o submit do form inteiro,
+// mesmo sem clicar no botão — inclusive quando o form também tem um
+// <textarea> de anotação ainda não preenchido. Como a etapa de Questões
+// fecha o ciclo, isso perdia o texto do Caderno de Erros sem o aluno
+// perceber. <textarea> não é afetado (Enter nele já é só quebra de linha).
+function bloquearEnterEmCampo(e: React.KeyboardEvent<HTMLFormElement>) {
+  if (e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+    e.preventDefault();
+  }
+}
+
 function estadoDeBundle(bundle: SessaoBundle): SessaoLocalState {
   return {
     versao: 1,
@@ -406,7 +418,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
     conteudo =
       candidatos.length > 0 ? (
-        <form action={aoConcluirAtivacaoCognitiva}>
+        <form action={aoConcluirAtivacaoCognitiva} onKeyDown={bloquearEnterEmCampo}>
           <p className="text-sm text-foreground/70">{ATIVACAO_MODO_LABEL[modo]}</p>
           <ul className="mt-4 space-y-2">
             {candidatos.map((assunto) => (
@@ -432,7 +444,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           </SubmitButton>
         </form>
       ) : (
-        <form action={aoConcluirAtivacaoCognitiva}>
+        <form action={aoConcluirAtivacaoCognitiva} onKeyDown={bloquearEnterEmCampo}>
           <p className="text-base font-medium text-foreground">Primeira vez em {bundle.disciplinaNome}.</p>
           <p className="mt-2 text-sm text-foreground/60">
             Ainda não há nada estudado aqui pra revisar — vamos direto pro conteúdo novo.
@@ -465,7 +477,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           </p>
         )}
 
-        <form action={aoConcluirEstudo}>
+        <form action={aoConcluirEstudo} onKeyDown={bloquearEnterEmCampo}>
           <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
             Terminei esse assunto
           </SubmitButton>
@@ -476,7 +488,11 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             Não deu tempo de terminar {proximoAssunto.nome}? Sem problema — ele continua aqui e volta a
             aparecer no Estudo na próxima vez que {bundle.disciplinaNome} entrar no ciclo.
           </p>
-          <form action={aoContinuarEstudoDepois} className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <form
+            action={aoContinuarEstudoDepois}
+            onKeyDown={bloquearEnterEmCampo}
+            className="mt-2 flex flex-col gap-2 sm:flex-row"
+          >
             <input
               name="progresso"
               type="text"
@@ -493,7 +509,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
         </div>
       </div>
     ) : (
-      <form action={aoConcluirEstudo}>
+      <form action={aoConcluirEstudo} onKeyDown={bloquearEnterEmCampo}>
         <p className="text-sm text-foreground/60">
           Você já estudou todos os assuntos cadastrados dessa disciplina — hora de reforçar o
           que já viu.
@@ -507,7 +523,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
 
   if (etapaAtual.tipo === "descanso") {
     conteudo = (
-      <form action={aoConcluirDescanso}>
+      <form action={aoConcluirDescanso} onKeyDown={bloquearEnterEmCampo}>
         <p className="text-sm text-foreground/60">
           Levante, beba água, descanse a vista. Volte em alguns minutos pra continuar.
         </p>
@@ -521,7 +537,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
   if (etapaAtual.tipo === "lei_seca") {
     if (bundle.leisPrincipais.length > 0) {
       conteudo = (
-        <form action={aoConcluirLeiSeca}>
+        <form action={aoConcluirLeiSeca} onKeyDown={bloquearEnterEmCampo}>
           <div className="flex items-center gap-1.5">
             <p className="text-sm text-foreground/60">Leia:</p>
             <InfoTip texto="Se for grifar, grife só palavras-chave — nada além disso." id="lei-seca-grifo" autoAbrir />
@@ -570,7 +586,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       const assunto = estado.assuntoSelecionado;
 
       conteudo = (
-        <form action={aoConcluirLeiSeca}>
+        <form action={aoConcluirLeiSeca} onKeyDown={bloquearEnterEmCampo}>
           {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
           <div className="mt-1 flex items-center gap-1.5">
             <InfoTip texto="Se for grifar, grife só palavras-chave — nada além disso." id="lei-seca-grifo" autoAbrir />
@@ -616,7 +632,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
   if (etapaAtual.tipo === "jurisprudencia") {
     if (bundle.jurisprudenciasPrincipais.length > 0) {
       conteudo = (
-        <form action={aoConcluirJurisprudencia}>
+        <form action={aoConcluirJurisprudencia} onKeyDown={bloquearEnterEmCampo}>
           <p className="text-sm text-foreground/60">Revise:</p>
           <div className="mt-1 space-y-0.5">
             {bundle.jurisprudenciasPrincipais.map((jurisprudencia) => (
@@ -662,7 +678,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       const assunto = estado.assuntoSelecionado;
 
       conteudo = (
-        <form action={aoConcluirJurisprudencia}>
+        <form action={aoConcluirJurisprudencia} onKeyDown={bloquearEnterEmCampo}>
           {assunto && <p className="text-xl font-semibold text-foreground">{assunto.nome}</p>}
 
           <div className="mt-4">
@@ -706,7 +722,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     const assunto = estado.assuntoSelecionado;
 
     conteudo = (
-      <form action={aoConcluirConsolidacao}>
+      <form action={aoConcluirConsolidacao} onKeyDown={bloquearEnterEmCampo}>
         <p className="text-sm text-foreground/60">{CONSOLIDACAO_INSTRUCAO[etapaAtual.tipo]}</p>
         {assunto && <p className="mt-2 text-xl font-semibold text-foreground">{assunto.nome}</p>}
         <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
@@ -720,7 +736,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     const erros = bundle.errosPendentesConsolidacao;
 
     conteudo = (
-      <form action={aoConcluirRevisaoErros}>
+      <form action={aoConcluirRevisaoErros} onKeyDown={bloquearEnterEmCampo}>
         {erros.length > 0 ? (
           <>
             <p className="text-sm text-foreground/60">Erros pendentes de revisão nessa disciplina:</p>
@@ -757,7 +773,10 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
     const mostrarAnki = bundle.ativacaoModo === "anki" || bundle.ativacaoModo === "questoes_anki";
 
     conteudo = (
-      <form action={ehValidacao ? aoConcluirQuestoesValidacao : aoConcluirQuestoesConsolidacao}>
+      <form
+        action={ehValidacao ? aoConcluirQuestoesValidacao : aoConcluirQuestoesConsolidacao}
+        onKeyDown={bloquearEnterEmCampo}
+      >
         <div className="flex items-center gap-1.5">
           <p className="text-sm text-foreground/60">
             {ehValidacao
@@ -897,7 +916,10 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
           </label>
         )}
 
-        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+        <SubmitButton
+          confirmMessage="Terminar essa etapa de Questões e concluir o ciclo?"
+          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
           Concluir sessão
         </SubmitButton>
       </form>
@@ -910,7 +932,7 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
       bundle.ativacaoModo === "anki" || bundle.ativacaoModo === "questoes_anki";
 
     conteudo = (
-      <form action={aoConcluirQuestoes}>
+      <form action={aoConcluirQuestoes} onKeyDown={bloquearEnterEmCampo}>
         <div className="flex items-center gap-1.5">
           <p className="text-sm text-foreground/60">
             Resolva questões {assunto ? "sobre" : "dessa disciplina"}{" "}
@@ -961,7 +983,10 @@ export function SessaoRuntime({ bundle }: { bundle: SessaoBundle }) {
             className="mt-1 w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2 text-sm outline-none focus:border-gold"
           />
         </div>
-        <SubmitButton className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90">
+        <SubmitButton
+          confirmMessage="Terminar essa etapa de Questões e concluir o ciclo?"
+          className="mt-6 rounded-md bg-navy px-5 py-2 text-sm font-medium text-white ring-1 ring-white/10 hover:opacity-90"
+        >
           Concluir sessão
         </SubmitButton>
       </form>

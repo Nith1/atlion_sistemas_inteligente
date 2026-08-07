@@ -28,6 +28,9 @@ export function LandingFooter() {
           <Link href="/login" className="transition hover:text-[#F5F3EF]">
             Entrar
           </Link>
+          <Link href="/feedback" className="transition hover:text-[#F5F3EF]">
+            Sugestões e Bugs
+          </Link>
           <a href="mailto:contato@atlionestudos.com.br" className="transition hover:text-[#F5F3EF]">
             contato@atlionestudos.com.br
           </a>

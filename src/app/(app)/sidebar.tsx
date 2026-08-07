@@ -118,6 +118,7 @@ function NavConteudo({
         ...NAV_ITEMS,
         { href: "/admin/convites", label: "Convites", Icone: IconeAdmin },
         { href: "/admin/lista-de-espera", label: "Lista de espera", Icone: IconeListaEspera },
+        { href: "/admin/feedback", label: "Feedback", Icone: IconeFeedback },
       ]
     : NAV_ITEMS;
   return (
@@ -170,6 +171,14 @@ function NavConteudo({
 
       <div className="mt-auto space-y-3 pt-6">
         <InstalarApp />
+
+        <Link
+          href="/feedback"
+          onClick={onNavegar}
+          className="block text-sm text-foreground/40 hover:text-foreground"
+        >
+          Sugestões e Bugs
+        </Link>
 
         <form action={sair}>
           <button type="submit" className="text-sm text-foreground/40 hover:text-foreground">
@@ -298,6 +307,15 @@ function IconeListaEspera(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
       <rect x="3" y="5" width="18" height="14" rx="2" />
       <path d="M3 7l9 6 9-6" />
+    </svg>
+  );
+}
+
+function IconeFeedback(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props}>
+      <path d="M4 4h16v12H8l-4 4V4Z" />
+      <path d="M8 9h8M8 12h5" />
     </svg>
   );
 }

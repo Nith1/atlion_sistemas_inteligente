@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { alternarRevisado } from "./actions";
 import { resolverPeriodo, dentroDoPeriodo } from "@/lib/periodo";
 import { FiltroPeriodoDisciplina } from "@/components/filtro-periodo-disciplina";
+import { EditarAnotacao } from "./editar-anotacao";
 
 type Registro = {
   id: string;
@@ -190,9 +191,11 @@ export default async function CadernoErrosPage({
                   <p className="mt-1 text-sm text-foreground">
                     Errou {bloco.quantidade} {bloco.quantidade === 1 ? "questão" : "questões"}
                   </p>
-                  {bloco.anotacao && (
-                    <p className="mt-2 text-sm text-foreground/70">{bloco.anotacao}</p>
-                  )}
+                  <EditarAnotacao
+                    sessaoId={bloco.sessaoId}
+                    assuntoId={bloco.assuntoId}
+                    anotacaoInicial={bloco.anotacao}
+                  />
                 </div>
                 <form action={alternarRevisado.bind(null, bloco.sessaoId, bloco.assuntoId, !bloco.revisado)}>
                   <button
